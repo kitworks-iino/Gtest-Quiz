@@ -1,9 +1,9 @@
 {
   "schema_version": "gtest_quiz_coverage_report_v1",
-  "generated_at": "2026-09-08T04:46:33Z",
+  "generated_at": "2026-09-09T04:28:47Z",
   "bank_version": "gemini35_v1",
   "model": "gemini-3.5-flash",
-  "total_questions": 724,
+  "total_questions": 729,
   "target_complete_questions": 550,
   "target_expanded_questions": 1000,
   "expected_chapters": 55,
@@ -11,10 +11,10 @@
   "missing_chapters": [],
   "extra_chapters": [],
   "correct_index_distribution": {
-    "0": 184,
-    "1": 174,
+    "0": 185,
+    "1": 175,
     "2": 178,
-    "3": 188
+    "3": 191
   },
   "correct_index_window_issues": [],
   "active_review_warning_count": 0,
@@ -44,15 +44,15 @@
     {
       "chapter_group": "人工知能とは",
       "chapter_id": "2. 人工知能分野で議論される問題",
-      "question_count": 14,
+      "question_count": 15,
       "difficulty_distribution": {
         "basic": 4,
         "standard": 7,
-        "advanced": 3
+        "advanced": 4
       },
       "correct_index_distribution": {
         "0": 3,
-        "1": 6,
+        "1": 7,
         "2": 3,
         "3": 2
       },
@@ -476,17 +476,17 @@
     {
       "chapter_group": "ディープラーニングの応用例",
       "chapter_id": "26. 画像認識",
-      "question_count": 14,
+      "question_count": 15,
       "difficulty_distribution": {
         "basic": 4,
         "standard": 7,
-        "advanced": 3
+        "advanced": 4
       },
       "correct_index_distribution": {
         "0": 3,
         "1": 2,
         "2": 4,
-        "3": 5
+        "3": 6
       },
       "legal_source_missing": 0,
       "review_warning_count": 0
@@ -584,17 +584,17 @@
     {
       "chapter_group": "ディープラーニングの応用例",
       "chapter_id": "32. マルチモーダル",
-      "question_count": 15,
+      "question_count": 16,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 7,
+        "standard": 8,
         "advanced": 4
       },
       "correct_index_distribution": {
         "0": 5,
         "1": 2,
         "2": 5,
-        "3": 3
+        "3": 4
       },
       "legal_source_missing": 0,
       "review_warning_count": 0
@@ -710,17 +710,17 @@
     {
       "chapter_group": "AIに関する法律と契約",
       "chapter_id": "2. 著作権法",
-      "question_count": 15,
+      "question_count": 16,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 7,
+        "standard": 8,
         "advanced": 4
       },
       "correct_index_distribution": {
         "0": 7,
         "1": 2,
         "2": 4,
-        "3": 2
+        "3": 3
       },
       "legal_source_missing": 0,
       "review_warning_count": 0
@@ -764,14 +764,14 @@
     {
       "chapter_group": "AIに関する法律と契約",
       "chapter_id": "5. 独占禁止法",
-      "question_count": 15,
+      "question_count": 16,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 7,
+        "standard": 8,
         "advanced": 4
       },
       "correct_index_distribution": {
-        "0": 1,
+        "0": 2,
         "1": 2,
         "2": 8,
         "3": 4
@@ -1052,24 +1052,24 @@
       "min_questions": 1000,
       "min_chapters": 55,
       "min_per_chapter": 15,
-      "chapters_meeting_floor": 28,
+      "chapters_meeting_floor": 30,
       "difficulty_balance_failures": []
     }
   },
-  "review_queue_total": 433,
+  "review_queue_total": 435,
   "review_queue_by_decision": {
     "error": 42,
-    "reject": 365,
+    "reject": 367,
     "review": 26
   },
   "reject_reason_top": [
     {
       "reason": "explanation should distinguish incorrect choices",
-      "count": 344
+      "count": 346
     },
     {
       "reason": "explanation does not distinguish distractors",
-      "count": 281
+      "count": 283
     },
     {
       "reason": "explanation should include the reason for the correct answer",
