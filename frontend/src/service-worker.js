@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gtest-quiz-static-gemini35_v1-345f58bcb520';
+const CACHE_NAME = 'gtest-quiz-static-gemini35_v1-978ef31cfaf8';
 const QUESTION_BANK_URL = './question-bank.json';
 const SHELL = [
   './index.html',
