@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "1970-01-01T00:00:00Z",
-  "updated_at": "2026-09-14T04:44:31Z",
+  "updated_at": "2026-09-15T05:08:27Z",
   "usage": {
     "total_questions": 0,
     "online_questions": 0,
@@ -14,7 +14,7 @@
     "last_error": null
   },
   "chapter_stats": {},
-  "last_chapter_id": "30. データ生成",
+  "last_chapter_id": "10. モデルの選択・評価",
   "chapters": {
     "01_人工知能とは": {
       "label": "人工知能とは",
@@ -301,30 +301,30 @@
   "question_bank": {
     "path": "bank/question_bank.jsonl",
     "bank_version": "gemini35_v1",
-    "total_questions": 769,
-    "updated_at": "2026-09-14T04:44:31Z"
+    "total_questions": 771,
+    "updated_at": "2026-09-15T05:08:27Z"
   },
   "content_factory": {
-    "last_refill_at": "2026-09-14T04:44:31Z",
+    "last_refill_at": "2026-09-15T05:08:27Z",
     "model": "gemini-3.5-flash",
     "bank_version": "gemini35_v1",
     "mode": "daily",
     "prompt_version": "gtest_factory_gemini35_v1_2026-05-26",
-    "target_accepts": 10,
-    "generated": 13,
-    "accepted": 10,
-    "queued_for_review": 2,
-    "rejected": 1,
+    "target_accepts": 5,
+    "generated": 4,
+    "accepted": 2,
+    "queued_for_review": 0,
+    "rejected": 2,
     "duplicates": 0,
-    "errors": 0,
+    "errors": 125,
     "targets": 55,
-    "api_call_count": 14,
-    "rate_limit_errors": 1,
+    "api_call_count": 384,
+    "rate_limit_errors": 362,
     "correct_index_distribution_generated": {
-      "0": 3,
-      "1": 1,
-      "2": 3,
-      "3": 3
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 2
     }
   },
   "normalization": {
@@ -345,36 +345,36 @@
     ]
   },
   "last_refill_result": {
-    "recorded_at": "2026-09-14T04:44:31Z",
+    "recorded_at": "2026-09-15T05:08:27Z",
     "model": "gemini-3.5-flash",
     "bank_version": "gemini35_v1",
     "mode": "daily",
-    "target_accepts": 10,
-    "generated": 13,
-    "accepted": 10,
-    "queued_for_review": 2,
-    "rejected": 1,
+    "target_accepts": 5,
+    "generated": 4,
+    "accepted": 2,
+    "queued_for_review": 0,
+    "rejected": 2,
     "duplicates": 0,
-    "errors": 0,
-    "api_call_count": 14,
-    "rate_limit_errors": 1,
+    "errors": 125,
+    "api_call_count": 384,
+    "rate_limit_errors": 362,
     "correct_index_distribution_before": {
-      "0": 191,
-      "1": 181,
-      "2": 186,
-      "3": 201
+      "0": 194,
+      "1": 182,
+      "2": 189,
+      "3": 204
     },
     "correct_index_distribution_generated": {
-      "0": 3,
-      "1": 1,
-      "2": 3,
-      "3": 3
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 2
     },
     "correct_index_distribution_after": {
       "0": 194,
       "1": 182,
       "2": 189,
-      "3": 204
+      "3": 206
     }
   }
 }
