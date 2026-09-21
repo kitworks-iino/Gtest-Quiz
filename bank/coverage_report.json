@@ -1,9 +1,9 @@
 {
   "schema_version": "gtest_quiz_coverage_report_v1",
-  "generated_at": "2026-09-20T05:03:31Z",
+  "generated_at": "2026-09-21T04:43:14Z",
   "bank_version": "gemini35_v1",
   "model": "gemini-3.5-flash",
-  "total_questions": 800,
+  "total_questions": 805,
   "target_complete_questions": 550,
   "target_expanded_questions": 1000,
   "expected_chapters": 55,
@@ -11,10 +11,10 @@
   "missing_chapters": [],
   "extra_chapters": [],
   "correct_index_distribution": {
-    "0": 201,
-    "1": 192,
-    "2": 194,
-    "3": 213
+    "0": 202,
+    "1": 194,
+    "2": 195,
+    "3": 214
   },
   "correct_index_window_issues": [],
   "active_review_warning_count": 0,
@@ -242,16 +242,16 @@
     {
       "chapter_group": "ディープラーニングの概要",
       "chapter_id": "13. 誤差関数",
-      "question_count": 10,
+      "question_count": 11,
       "difficulty_distribution": {
-        "basic": 2,
+        "basic": 3,
         "standard": 6,
         "advanced": 2
       },
       "correct_index_distribution": {
         "0": 5,
         "1": 1,
-        "2": 1,
+        "2": 2,
         "3": 3
       },
       "legal_source_missing": 0,
@@ -260,9 +260,9 @@
     {
       "chapter_group": "ディープラーニングの概要",
       "chapter_id": "14. 正則化",
-      "question_count": 10,
+      "question_count": 11,
       "difficulty_distribution": {
-        "basic": 2,
+        "basic": 3,
         "standard": 6,
         "advanced": 2
       },
@@ -270,7 +270,7 @@
         "0": 1,
         "1": 2,
         "2": 1,
-        "3": 6
+        "3": 7
       },
       "legal_source_missing": 0,
       "review_warning_count": 0
@@ -656,15 +656,15 @@
     {
       "chapter_group": "AIの社会実装に向けて",
       "chapter_id": "36. データの収集・加工・分析・学習",
-      "question_count": 10,
+      "question_count": 11,
       "difficulty_distribution": {
-        "basic": 2,
+        "basic": 3,
         "standard": 6,
         "advanced": 2
       },
       "correct_index_distribution": {
         "0": 4,
-        "1": 4,
+        "1": 5,
         "2": 2,
         "3": 0
       },
@@ -836,14 +836,14 @@
     {
       "chapter_group": "AI倫理・AIガバナンス",
       "chapter_id": "9. プライバシー",
-      "question_count": 10,
+      "question_count": 11,
       "difficulty_distribution": {
-        "basic": 2,
+        "basic": 3,
         "standard": 6,
         "advanced": 2
       },
       "correct_index_distribution": {
-        "0": 2,
+        "0": 3,
         "1": 1,
         "2": 3,
         "3": 4
@@ -998,15 +998,15 @@
     {
       "chapter_group": "AI倫理・AIガバナンス",
       "chapter_id": "18. AIガバナンス",
-      "question_count": 10,
+      "question_count": 11,
       "difficulty_distribution": {
-        "basic": 2,
+        "basic": 3,
         "standard": 6,
         "advanced": 2
       },
       "correct_index_distribution": {
         "0": 3,
-        "1": 3,
+        "1": 4,
         "2": 3,
         "3": 1
       },
@@ -1056,28 +1056,28 @@
       "difficulty_balance_failures": []
     }
   },
-  "review_queue_total": 491,
+  "review_queue_total": 492,
   "review_queue_by_decision": {
     "error": 49,
-    "reject": 413,
+    "reject": 414,
     "review": 29
   },
   "reject_reason_top": [
     {
       "reason": "explanation should distinguish incorrect choices",
-      "count": 390
+      "count": 391
     },
     {
       "reason": "explanation does not distinguish distractors",
-      "count": 320
+      "count": 321
     },
     {
       "reason": "explanation should include the reason for the correct answer",
-      "count": 185
+      "count": 186
     },
     {
       "reason": "explanation does not clearly state why the answer is correct",
-      "count": 75
+      "count": 76
     },
     {
       "reason": "concept tags are missing",
