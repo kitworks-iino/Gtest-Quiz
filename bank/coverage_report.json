@@ -1,9 +1,9 @@
 {
   "schema_version": "gtest_quiz_coverage_report_v1",
-  "generated_at": "2026-09-29T05:34:59Z",
+  "generated_at": "2026-09-30T05:27:27Z",
   "bank_version": "gemini35_v1",
   "model": "gemini-3.5-flash",
-  "total_questions": 858,
+  "total_questions": 863,
   "target_complete_questions": 550,
   "target_expanded_questions": 1000,
   "expected_chapters": 55,
@@ -11,9 +11,9 @@
   "missing_chapters": [],
   "extra_chapters": [],
   "correct_index_distribution": {
-    "0": 217,
+    "0": 221,
     "1": 213,
-    "2": 202,
+    "2": 203,
     "3": 226
   },
   "correct_index_window_issues": [],
@@ -116,14 +116,14 @@
     {
       "chapter_group": "人工知能をめぐる動向",
       "chapter_id": "6. ディープラーニング",
-      "question_count": 16,
+      "question_count": 17,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 8,
+        "standard": 9,
         "advanced": 4
       },
       "correct_index_distribution": {
-        "0": 6,
+        "0": 7,
         "1": 3,
         "2": 5,
         "3": 2
@@ -224,16 +224,16 @@
     {
       "chapter_group": "ディープラーニングの概要",
       "chapter_id": "12. 活性化関数",
-      "question_count": 15,
+      "question_count": 16,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 7,
+        "standard": 8,
         "advanced": 4
       },
       "correct_index_distribution": {
         "0": 4,
         "1": 3,
-        "2": 4,
+        "2": 5,
         "3": 4
       },
       "legal_source_missing": 0,
@@ -332,14 +332,14 @@
     {
       "chapter_group": "ディープラーニングの要素技術",
       "chapter_id": "18. 畳み込み層",
-      "question_count": 11,
+      "question_count": 12,
       "difficulty_distribution": {
         "basic": 3,
         "standard": 6,
-        "advanced": 2
+        "advanced": 3
       },
       "correct_index_distribution": {
-        "0": 4,
+        "0": 5,
         "1": 2,
         "2": 3,
         "3": 2
@@ -620,14 +620,14 @@
     {
       "chapter_group": "ディープラーニングの応用例",
       "chapter_id": "34. モデルの軽量化",
-      "question_count": 15,
+      "question_count": 16,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 7,
+        "standard": 8,
         "advanced": 4
       },
       "correct_index_distribution": {
-        "0": 6,
+        "0": 7,
         "1": 6,
         "2": 1,
         "3": 2
@@ -836,14 +836,14 @@
     {
       "chapter_group": "AI倫理・AIガバナンス",
       "chapter_id": "9. プライバシー",
-      "question_count": 16,
+      "question_count": 17,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 8,
+        "standard": 9,
         "advanced": 4
       },
       "correct_index_distribution": {
-        "0": 3,
+        "0": 4,
         "1": 4,
         "2": 4,
         "3": 5
@@ -1056,36 +1056,36 @@
       "difficulty_balance_failures": []
     }
   },
-  "review_queue_total": 520,
+  "review_queue_total": 526,
   "review_queue_by_decision": {
-    "error": 57,
-    "reject": 432,
+    "error": 59,
+    "reject": 436,
     "review": 31
   },
   "reject_reason_top": [
     {
       "reason": "explanation should distinguish incorrect choices",
-      "count": 407
+      "count": 411
     },
     {
       "reason": "explanation does not distinguish distractors",
-      "count": 335
+      "count": 337
     },
     {
       "reason": "explanation should include the reason for the correct answer",
-      "count": 198
+      "count": 200
     },
     {
       "reason": "explanation does not clearly state why the answer is correct",
-      "count": 80
+      "count": 81
     },
     {
       "reason": "concept tags are missing",
-      "count": 59
+      "count": 61
     },
     {
       "reason": "503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}",
-      "count": 56
+      "count": 58
     },
     {
       "reason": "legal or guideline question is missing official source metadata: source_url, source_title, source_version, source_checked_at, legal_basis",
