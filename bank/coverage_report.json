@@ -1,9 +1,9 @@
 {
   "schema_version": "gtest_quiz_coverage_report_v1",
-  "generated_at": "2026-10-02T05:29:45Z",
+  "generated_at": "2026-10-03T05:31:49Z",
   "bank_version": "gemini35_v1",
   "model": "gemini-3.5-flash",
-  "total_questions": 874,
+  "total_questions": 880,
   "target_complete_questions": 550,
   "target_expanded_questions": 1000,
   "expected_chapters": 55,
@@ -11,9 +11,9 @@
   "missing_chapters": [],
   "extra_chapters": [],
   "correct_index_distribution": {
-    "0": 221,
-    "1": 216,
-    "2": 205,
+    "0": 224,
+    "1": 218,
+    "2": 206,
     "3": 232
   },
   "correct_index_window_issues": [],
@@ -224,14 +224,14 @@
     {
       "chapter_group": "ディープラーニングの概要",
       "chapter_id": "12. 活性化関数",
-      "question_count": 17,
+      "question_count": 18,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 9,
+        "standard": 10,
         "advanced": 4
       },
       "correct_index_distribution": {
-        "0": 4,
+        "0": 5,
         "1": 3,
         "2": 6,
         "3": 4
@@ -332,16 +332,16 @@
     {
       "chapter_group": "ディープラーニングの要素技術",
       "chapter_id": "18. 畳み込み層",
-      "question_count": 14,
+      "question_count": 15,
       "difficulty_distribution": {
         "basic": 4,
         "standard": 7,
-        "advanced": 3
+        "advanced": 4
       },
       "correct_index_distribution": {
         "0": 5,
         "1": 3,
-        "2": 3,
+        "2": 4,
         "3": 3
       },
       "legal_source_missing": 0,
@@ -656,14 +656,14 @@
     {
       "chapter_group": "AIの社会実装に向けて",
       "chapter_id": "36. データの収集・加工・分析・学習",
-      "question_count": 17,
+      "question_count": 18,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 9,
+        "standard": 10,
         "advanced": 4
       },
       "correct_index_distribution": {
-        "0": 4,
+        "0": 5,
         "1": 7,
         "2": 3,
         "3": 3
@@ -836,15 +836,15 @@
     {
       "chapter_group": "AI倫理・AIガバナンス",
       "chapter_id": "9. プライバシー",
-      "question_count": 17,
+      "question_count": 18,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 9,
+        "standard": 10,
         "advanced": 4
       },
       "correct_index_distribution": {
         "0": 4,
-        "1": 4,
+        "1": 5,
         "2": 4,
         "3": 5
       },
@@ -908,14 +908,14 @@
     {
       "chapter_group": "AI倫理・AIガバナンス",
       "chapter_id": "13. 透明性",
-      "question_count": 17,
+      "question_count": 18,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 9,
+        "standard": 10,
         "advanced": 4
       },
       "correct_index_distribution": {
-        "0": 3,
+        "0": 4,
         "1": 2,
         "2": 4,
         "3": 8
@@ -998,15 +998,15 @@
     {
       "chapter_group": "AI倫理・AIガバナンス",
       "chapter_id": "18. AIガバナンス",
-      "question_count": 17,
+      "question_count": 18,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 9,
+        "standard": 10,
         "advanced": 4
       },
       "correct_index_distribution": {
         "0": 3,
-        "1": 6,
+        "1": 7,
         "2": 4,
         "3": 4
       },
@@ -1052,39 +1052,39 @@
       "min_questions": 1000,
       "min_chapters": 55,
       "min_per_chapter": 15,
-      "chapters_meeting_floor": 39,
+      "chapters_meeting_floor": 40,
       "difficulty_balance_failures": []
     }
   },
-  "review_queue_total": 537,
+  "review_queue_total": 542,
   "review_queue_by_decision": {
-    "error": 62,
-    "reject": 444,
+    "error": 63,
+    "reject": 448,
     "review": 31
   },
   "reject_reason_top": [
     {
       "reason": "explanation should distinguish incorrect choices",
-      "count": 419
+      "count": 423
     },
     {
       "reason": "explanation does not distinguish distractors",
-      "count": 344
+      "count": 347
     },
     {
       "reason": "explanation should include the reason for the correct answer",
-      "count": 201
+      "count": 203
     },
     {
       "reason": "explanation does not clearly state why the answer is correct",
-      "count": 81
-    },
-    {
-      "reason": "concept tags are missing",
-      "count": 61
+      "count": 82
     },
     {
       "reason": "503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}",
+      "count": 62
+    },
+    {
+      "reason": "concept tags are missing",
       "count": 61
     },
     {
