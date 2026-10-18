@@ -1,15 +1,15 @@
 {
   "id": "./",
-  "name": "G検定 Offline Quiz",
-  "short_name": "G検定 Quiz",
-  "description": "iPhoneだけで学習履歴を保存できるG検定向けオフラインPWA",
+  "name": "Gtest — G検定学習",
+  "short_name": "Gtest",
+  "description": "G検定の問題演習・復習・学習記録を端末に保存する学習アプリ",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
-  "background_color": "#f7f8fa",
-  "theme_color": "#101828",
+  "background_color": "#08090a",
+  "theme_color": "#08090a",
   "icons": [
     {
       "src": "./pwa-icon-192.png",

@@ -20,6 +20,22 @@ BANK_PATH = ROOT / "bank/question_bank.jsonl"
 FRONTEND = ROOT / "frontend/src"
 STATIC_BANK_PATH = FRONTEND / "question-bank.json"
 SERVICE_WORKER_PATH = FRONTEND / "service-worker.js"
+SHELL_FILES = (
+    "index.html",
+    "offline-app.js",
+    "styles.css",
+    "learning-engine.js",
+    "content-guard.js",
+    "manifest.webmanifest",
+    "pwa-icon.svg",
+    "pwa-icon-180.png",
+    "pwa-icon-192.png",
+    "pwa-icon-512.png",
+    "assets/InterVariable.woff2",
+    "question-bank.json",
+    "question-review-holds.json",
+)
+CACHE_NAME_PATTERN = r"const CACHE_NAME = '[^']+';"
 META_PATH = ROOT / "bank/meta.json"
 COVERAGE_REPORT_PATH = ROOT / "bank/coverage_report.json"
 LEGAL_SOURCE_FIELDS = (
@@ -93,11 +109,32 @@ def _write_text_if_changed(path: Path, text: str) -> bool:
     return True
 
 
+def shell_content_hash() -> str:
+    """Fingerprint the deployed shell, including changes to worker behaviour.
+
+    Normalize the generated cache name so rebuilding unchanged sources is stable.
+    The bank is included because its coverage metadata can change independently
+    of the canonical question content hash.
+    """
+    digest = hashlib.sha256()
+    for filename in SHELL_FILES:
+        digest.update(filename.encode("utf-8") + b"\0")
+        digest.update((FRONTEND / filename).read_bytes())
+        digest.update(b"\0")
+    worker = SERVICE_WORKER_PATH.read_text(encoding="utf-8")
+    normalized, count = re.subn(CACHE_NAME_PATTERN, "const CACHE_NAME = '__BUILD__';", worker, count=1)
+    if count != 1:
+        raise ValueError("service-worker.js must declare a generated CACHE_NAME")
+    digest.update(normalized.encode("utf-8"))
+    return digest.hexdigest()
+
+
 def update_service_worker_cache_name(bank_version: str, content_hash: str) -> str:
-    cache_name = f"gtest-quiz-static-{bank_version}-{content_hash[:12]}"
+    shell_hash = shell_content_hash()
+    cache_name = f"gtest-quiz-static-{bank_version}-{content_hash[:12]}-{shell_hash[:12]}"
     worker = SERVICE_WORKER_PATH.read_text(encoding="utf-8")
     updated = re.sub(
-        r"const CACHE_NAME = '[^']+';",
+        CACHE_NAME_PATTERN,
         f"const CACHE_NAME = '{cache_name}';",
         worker,
         count=1,
@@ -181,9 +218,13 @@ def write_icon(path: Path, size: int) -> None:
 
 
 def main() -> None:
-    result = write_static_bank()
+    # Icons are source assets after their initial creation; daily bank updates
+    # must not replace artwork or any authored HTML, CSS, font or JS modules.
     for size in (180, 192, 512):
-        write_icon(FRONTEND / f"pwa-icon-{size}.png", size)
+        path = FRONTEND / f"pwa-icon-{size}.png"
+        if not path.exists():
+            write_icon(path, size)
+    result = write_static_bank()
     result["icons"] = [180, 192, 512]
     print(json.dumps(result, ensure_ascii=False))
 

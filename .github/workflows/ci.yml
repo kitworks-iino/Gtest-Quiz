@@ -21,6 +21,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -37,6 +43,9 @@ jobs:
       - name: Check OpenAPI contract
         run: |
           pytest tests/contracts
+
+      - name: Test browser learning and content guard modules
+        run: node --test tests/frontend/*.test.mjs
 
       - name: Run unit + integration + backend + frontend tests
         run: |

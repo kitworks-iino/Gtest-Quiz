@@ -41,6 +41,8 @@ def evaluate_release_readiness(profile: str | None = None) -> Dict[str, Any]:
     question_dto_source = schema_source.split("class QuestionDTO", 1)[1].split("class AnswerRequest", 1)[0]
     frontend = Path("frontend/src/index.html").read_text(encoding="utf-8")
     offline_app = Path("frontend/src/offline-app.js").read_text(encoding="utf-8")
+    learning_engine = Path("frontend/src/learning-engine.js").read_text(encoding="utf-8")
+    client_source = offline_app + "\n" + learning_engine
     service_worker = Path("frontend/src/service-worker.js").read_text(encoding="utf-8")
     static_bank = json.loads(Path("frontend/src/question-bank.json").read_text(encoding="utf-8"))
     bank_version = current_bank_version()
@@ -110,8 +112,10 @@ def evaluate_release_readiness(profile: str | None = None) -> Dict[str, Any]:
             and Path("frontend/src/service-worker.js").exists()
             and Path("frontend/src/question-bank.json").exists()
             and Path("frontend/src/offline-app.js").exists()
-            and "exportAccount" in offline_app
-            and "importAccount" in offline_app
+            and Path("frontend/src/styles.css").exists()
+            and "./learning-engine.js" in offline_app
+            and "exportData" in offline_app and "exportData" in learning_engine
+            and "importData" in offline_app and "importData" in learning_engine
             and "question-bank.json" in service_worker,
         )
     )
@@ -119,7 +123,7 @@ def evaluate_release_readiness(profile: str | None = None) -> Dict[str, Any]:
         _check(
             "question_bank_cache_network_first",
             "QUESTION_BANK_URL" in service_worker
-            and "url.pathname.endsWith('/question-bank.json')" in service_worker
+            and "url.pathname === questionBankPath" in service_worker
             and "questionBankNetworkFirst(request)" in service_worker
             and "cache: 'no-store'" in service_worker,
         )
@@ -133,9 +137,11 @@ def evaluate_release_readiness(profile: str | None = None) -> Dict[str, Any]:
             and "http://localhost" not in offline_app
             and "/api/v1" not in frontend
             and "/api/v1" not in offline_app
-            and "localStorage" in offline_app
-            and "selectNextQuestion" in offline_app
-            and "updateSchedule" in offline_app,
+            and "localStorage" in learning_engine
+            and "createEngine" in offline_app
+            and "export function createEngine" in learning_engine
+            and "buildSession" in offline_app and "buildSession" in learning_engine
+            and "updateSchedule" in learning_engine,
             {"static_questions": static_question_count},
         )
     )
@@ -153,8 +159,9 @@ def evaluate_release_readiness(profile: str | None = None) -> Dict[str, Any]:
         _check(
             "gemini35_epoch",
             static_bank.get("meta", {}).get("bank_version") == bank_version
-            and "applyBankVersionMigration" in offline_app
-            and "bankResetNoticeSeen" in offline_app
+            and "bankVersion" in learning_engine
+            and "gtestQuizOfflineStateV1" in learning_engine
+            and "normalizeState" in learning_engine
             and "gemini-3.5-flash" in Path("gtest_quiz/bank_epoch.py").read_text(encoding="utf-8"),
             {"bank_version": bank_version, "model": model_name},
         )
@@ -176,7 +183,7 @@ def evaluate_release_readiness(profile: str | None = None) -> Dict[str, Any]:
             and "/api/v1/auth/login" not in contract_text
             and "/api/v1/auth/register" not in contract_text
             and "password" not in frontend.lower()
-            and "password" not in offline_app.lower()
+            and "password" not in client_source.lower()
             and "LoginRequest" not in schema_source
             and "RegisterRequest" not in schema_source,
         )
