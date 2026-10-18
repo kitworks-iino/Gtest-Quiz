@@ -8,11 +8,8 @@
 | GitHub Pages | [本番](https://kitworks-iino.github.io/Gtest-Quiz/)。[公開設定](https://github.com/kitworks-iino/Gtest-Quiz/settings/pages) |
 | GitHub Actions | [実行履歴](https://github.com/kitworks-iino/Gtest-Quiz/actions)。CI、問題補充、公開、リリース検査 |
 | Gemini API | [APIキー](https://aistudio.google.com/api-keys)。キーはGitHubの `GEMINI_API_KEY` Secret、モデルは `GEMINI_MODEL` Variable |
-| ChatGPT Sites | [本人用の確認サイト](https://linear-mobile-ui-study.kitworks-iino.chatgpt.site)。本番とは別の静的コピー |
 
 Google AI Proと外部アプリからのGemini API利用は別管理です。APIの費用・上限は該当Googleプロジェクトで確認します。このリポジトリから課金状態は判断できません。
-
-確認サイトは本番の補充workflowから自動更新されません。本番GitHub Pagesを日常学習に使用し、確認サイトはUI変更時に更新します。
 
 ## フロントエンド
 
