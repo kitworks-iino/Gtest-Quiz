@@ -193,6 +193,10 @@ button > *,
   );
   display: inline-block;
 }
+.brand-credit {
+  font-size: 11px;
+  white-space: nowrap;
+}
 .page-title {
   font-size: 26px;
   line-height: 36px;

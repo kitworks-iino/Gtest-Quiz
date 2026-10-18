@@ -107,7 +107,7 @@ function pageHeader(
   return `<header class="page-header">
     <div class="eyebrow-line">
       <div class="eyebrow">
-        ${back ? iconButton('back', '戻る', 'back') : '<span class="brand-dot" aria-hidden="true"></span>'}${escapeHtml(eyebrow)}
+        ${back ? iconButton('back', '戻る', 'back') : '<span class="brand-dot" aria-hidden="true"></span>'}${escapeHtml(eyebrow)}${!back && eyebrow === 'Gtest' ? '<span class="brand-credit">by KiT Works</span>' : ''}
       </div>
       ${action ? iconButton(actionIcon, actionLabel, action) : ''}
     </div>

@@ -153,10 +153,13 @@ function weekMarkup(stats) {
   </div>`;
 }
 // Home, review and study sessions.
+function hasSessionProgress(saved) {
+  return saved && saved.answers.length > 0 && saved.index < saved.ids.length;
+}
 function renderHome() {
   const s = engine.getStats(),
     saved = engine.getSession(),
-    inProgress = saved && saved.index < saved.ids.length;
+    inProgress = hasSessionProgress(saved);
   const remain = Math.max(0, s.dailyGoal - s.todayCount);
   screen.innerHTML = `<section class="page">
     ${pageHeader('今日の学習')}
@@ -275,12 +278,11 @@ function renderReview() {
 }
 function startSession(options, force = false) {
   const saved = engine.getSession();
-  if (!force && saved && saved.index < saved.ids.length) {
+  if (!force && hasSessionProgress(saved)) {
     showSheet(
       '途中の学習があります',
       `<p>
-          ${modeNames[saved.mode]}を${saved.answers.length} /
-          ${saved.ids.length}問まで進めています。
+          ${modeNames[saved.mode]}：全${saved.ids.length}問中${saved.answers.length}問に回答済みです。
         </p>
         ${primaryButton('続きから学習する', 'resume')}<button
           class="secondary-button"
@@ -899,7 +901,7 @@ app.addEventListener('click', (e) => {
       case 'pause':
         engine.saveSession(session);
         navigate('home');
-        toast('続きから再開できます');
+        toast(session.answers.length ? '続きから再開できます' : '学習を終了しました');
         break;
       case 'answer':
         submitAnswer(Number(value));
