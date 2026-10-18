@@ -117,6 +117,50 @@ def _duplicate_suspect_count(rows: List[Dict[str, Any]]) -> int:
     return count
 
 
+def _concrete_model(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    model = value.strip()
+    return model if model and model.casefold() != "auto" else None
+
+
+def _model_report(rows: List[Dict[str, Any]], meta_path: Path) -> Dict[str, Any]:
+    policy = current_model_name()
+    models = [
+        _concrete_model(row["provenance"].get("model"))
+        if isinstance(row.get("provenance"), dict) else None
+        for row in rows
+    ]
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    last_result = meta.get("last_refill_result") or {}
+    last_selection = last_result.get("model_selection") or {}
+    last_selected_model = (
+        _concrete_model(last_selection.get("model_id"))
+        or _concrete_model(last_result.get("model"))
+    )
+    last_generation_model = None
+    for result in (last_result, meta.get("content_factory") or {}):
+        # Resolving a model, or stopping before generation, is not generation.
+        if result.get("generated", 0) > 0:
+            last_generation_model = _concrete_model(result.get("model"))
+            if last_generation_model:
+                break
+    return {
+        "model": last_generation_model,
+        "model_selection_policy": policy,
+        "last_selected_model": last_selected_model,
+        "last_model_selection": last_selection or None,
+        "model_distribution": dict(sorted(Counter(model for model in models if model).items())),
+        "model_provenance_missing_count": sum(model is None for model in models),
+        # Historical provenance remains valid when the selected model changes.
+        # A fixed-policy mismatch is diagnostic, not a quality failure.
+        "model_mismatch_count": (
+            0 if policy.casefold() == "auto"
+            else sum(model != policy for model in models if model)
+        ),
+    }
+
+
 
 def difficulty_balance_ok(distribution: Dict[str, int], min_per_chapter: int) -> bool:
     total = sum(distribution.values())
@@ -180,7 +224,7 @@ def build_coverage_report(
     legal_source_missing = sum(item["legal_source_missing"] for item in chapter_reports)
     duplicate_suspect_count = _duplicate_suspect_count(rows)
     correct_distribution = _counter_dict((row.get("correct_index") for row in rows), range(4))
-    model_mismatch_count = sum(1 for row in rows if (row.get("provenance") or {}).get("model") != current_model_name())
+    model_report = _model_report(rows, meta_path)
     bank_version_mismatch_count = sum(1 for row in rows if row.get("bank_version") != current_bank_version())
     review_queue = _review_queue_summary(review_queue_path)
 
@@ -201,7 +245,7 @@ def build_coverage_report(
             and active_review_warning_count == 0
             and legal_source_missing == 0
             and duplicate_suspect_count == 0
-            and model_mismatch_count == 0
+            and model_report["model_provenance_missing_count"] == 0
             and bank_version_mismatch_count == 0
             and not window_issues
             and not difficulty_failures
@@ -219,7 +263,7 @@ def build_coverage_report(
         "schema_version": "gtest_quiz_coverage_report_v1",
         "generated_at": _now_iso(),
         "bank_version": current_bank_version(),
-        "model": current_model_name(),
+        **model_report,
         "total_questions": len(rows),
         "target_complete_questions": PROFILE_RULES["complete"]["min_questions"],
         "target_expanded_questions": PROFILE_RULES["expanded"]["min_questions"],
@@ -232,7 +276,6 @@ def build_coverage_report(
         "active_review_warning_count": active_review_warning_count,
         "legal_source_missing": legal_source_missing,
         "duplicate_suspect_count": duplicate_suspect_count,
-        "model_mismatch_count": model_mismatch_count,
         "bank_version_mismatch_count": bank_version_mismatch_count,
         "chapters": chapter_reports,
         "profiles": profiles,

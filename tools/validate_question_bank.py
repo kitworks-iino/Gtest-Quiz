@@ -122,7 +122,10 @@ def validate_question_bank(path: Path = BANK_PATH) -> List[str]:
         for field in REQUIRED_PROVENANCE:
             if field not in provenance:
                 errors.append(f"{path}:{line_no}: missing provenance field {field}")
-        if provenance.get("model") != expected_model:
+        model = provenance.get("model")
+        if not isinstance(model, str) or not model.strip() or model.strip().casefold() == "auto":
+            errors.append(f"{path}:{line_no}: provenance.model must contain a concrete model ID")
+        elif expected_model.casefold() != "auto" and model != expected_model:
             errors.append(f"{path}:{line_no}: provenance.model must be {expected_model}")
         if provenance.get("bank_version") != expected_bank_version:
             errors.append(f"{path}:{line_no}: provenance.bank_version must be {expected_bank_version}")

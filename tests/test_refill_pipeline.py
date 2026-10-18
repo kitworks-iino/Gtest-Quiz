@@ -3,6 +3,20 @@ import pytest
 from gtest_quiz import refill_pipeline
 from gtest_quiz.content_factory import FactoryStats
 from gtest_quiz.refill_pipeline import RefillConfig, RefillStats
+from gtest_quiz.model_selection import ModelSelection
+
+
+@pytest.fixture(autouse=True)
+def offline_model_selection(monkeypatch):
+    """Generator behavior tests never fetch catalogs or call a live model."""
+    def select(client, requested):
+        model_id = "gemini-test-resolved" if requested == "auto" else requested
+        return ModelSelection(
+            model_id=model_id, eligible_models=(model_id,),
+            checked_at="2026-10-18T09:00:00Z", pricing_url="https://ai.google.dev/gemini-api/docs/pricing",
+            reason="offline fixture",
+        )
+    monkeypatch.setattr(refill_pipeline, "resolve_model", select)
 
 
 def test_safe_parse_json_accepts_wrapped_model_text():
@@ -32,7 +46,7 @@ def test_refill_stats_wrap_factory_stats():
     assert stats.api_call_count == 7
     assert stats.rate_limit_errors == 1
     assert stats.correct_index_distribution_generated == {"0": 0, "1": 2, "2": 0, "3": 0}
-    assert stats.model_name == "gemini-3.5-flash"
+    assert stats.model_name == "auto"  # No generator was run in this wrapper test.
     assert stats.bank_version == "gemini35_v1"
 
 
@@ -84,6 +98,21 @@ def test_generator_uses_current_structured_sdk(monkeypatch):
     assert generator.api_call_count == 1
 
 
+def test_generator_sends_resolved_model_instead_of_auto(monkeypatch):
+    from types import SimpleNamespace
+    calls = []
+
+    def generate_content(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(parsed={"question": "question"})
+
+    monkeypatch.setattr(refill_pipeline, "_load_generator", lambda key: SimpleNamespace(
+        models=SimpleNamespace(generate_content=generate_content)))
+    generator = refill_pipeline.GeminiQuestionGenerator(api_key="test", model_name="auto")
+    generator.generate("prompt", refill_pipeline.GeneratedQuestionSpec)
+    assert calls[0]["model"] == generator.model_selection["model_id"] == "gemini-test-resolved"
+
+
 def test_generator_counts_quota_errors_without_sleep_after_last_try(monkeypatch):
     from types import SimpleNamespace
     class Models:
@@ -126,6 +155,8 @@ def _refill_fixture(tmp_path, monkeypatch, *, fail=False):
     monkeypatch.setattr(refill_pipeline, "load_dotenv", lambda: None)
     monkeypatch.setattr(refill_pipeline, "get_env", lambda key: "test-key")
     class Generator(StaticGenerator):
+        model_name = "gemini-test-resolved"
+        model_selection = {"model_id": model_name, "reason": "offline fixture"}
         api_call_count = 0
         rate_limit_errors = 0
         def generate(self, prompt, schema):
@@ -157,6 +188,9 @@ def test_reset_stages_and_validates_before_replacing_bank(tmp_path, monkeypatch)
     meta = json.loads((tmp_path / "bank/meta.json").read_text())
     assert meta["sentinel"] == {"preserve": True}
     assert meta["last_refill_result"]["api_call_count"] == 1
+    assert meta["last_refill_result"]["model"] == "gemini-test-resolved"
+    assert meta["last_refill_result"]["model_selection"]["model_id"] == "gemini-test-resolved"
+    assert json.loads(bank.read_text())["provenance"]["model"] == "gemini-test-resolved"
 
 
 def test_quota_failure_preserves_old_bank_and_stops_factory_calls(tmp_path, monkeypatch):
@@ -167,6 +201,25 @@ def test_quota_failure_preserves_old_bank_and_stops_factory_calls(tmp_path, monk
     assert stats.accepted == 0
     assert stats.api_call_count == stats.rate_limit_errors == 1
     assert bank.read_bytes() == original
+
+
+def test_selection_failure_leaves_existing_and_staged_banks_untouched(tmp_path, monkeypatch):
+    from gtest_quiz.model_selection import ModelSelectionError
+    real_generator = refill_pipeline.GeminiQuestionGenerator
+    bank = _refill_fixture(tmp_path, monkeypatch)
+    staged = tmp_path / "bank/question_bank.next.jsonl"
+    staged.write_text("previous staging content\n")
+    original = {path: path.read_bytes() for path in (bank, staged, tmp_path / "bank/meta.json")}
+    monkeypatch.setattr(refill_pipeline, "GeminiQuestionGenerator", real_generator)
+    monkeypatch.setattr(refill_pipeline, "_load_generator", lambda key: object())
+
+    def fail_selection(client, requested):
+        raise ModelSelectionError("pricing unavailable")
+
+    monkeypatch.setattr(refill_pipeline, "resolve_model", fail_selection)
+    with pytest.raises(ModelSelectionError, match="pricing unavailable"):
+        refill_pipeline.run_refill(RefillConfig(target_daily=1, mode="reset_and_seed"))
+    assert all(path.read_bytes() == content for path, content in original.items())
 
 
 def test_bad_staged_bank_cannot_replace_live_bank(tmp_path, monkeypatch):

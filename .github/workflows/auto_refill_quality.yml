@@ -18,6 +18,7 @@ on:
           - build_to_complete
           - build_to_expanded
           - validate_only
+          - resolve_model_only
       target:
         description: "Target accepted questions for this run"
         required: false
@@ -73,8 +74,7 @@ jobs:
       - name: Run schema-first quality refill
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.5-flash' }}
-          ENFORCE_GEMINI35: ${{ vars.ENFORCE_GEMINI35 || 'true' }}
+          GEMINI_MODEL: auto
           QUESTION_BANK_EPOCH: ${{ vars.QUESTION_BANK_EPOCH || 'gemini35_v1' }}
           GENERATION_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'daily' }}
           GENERATION_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || '' }}
@@ -92,22 +92,20 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "GEMINI_MODEL=$GEMINI_MODEL"
-          echo "ENFORCE_GEMINI35=$ENFORCE_GEMINI35"
-          if [ "$GEMINI_MODEL" != "gemini-3.5-flash" ]; then
-            echo "::warning::GEMINI_MODEL is $GEMINI_MODEL; expected gemini-3.5-flash"
-            if [ "$ENFORCE_GEMINI35" = "true" ]; then
-              echo "::error::ENFORCE_GEMINI35=true rejects non-gemini-3.5-flash models"
-              exit 1
-            fi
-          fi
           python tools/auto_refill_quality.py --mode "$GENERATION_MODE" --target "$GENERATION_TARGET" | tee refill-result.json
-          if [ "$GENERATION_MODE" != "validate_only" ]; then
+          if [ "$GENERATION_MODE" != "validate_only" ] && [ "$GENERATION_MODE" != "resolve_model_only" ]; then
             python tools/assert_refill_result.py refill-result.json
+          fi
+          if [ -n "$GITHUB_STEP_SUMMARY" ]; then
+            printf '```json\n' >> "$GITHUB_STEP_SUMMARY"
+            cat refill-result.json >> "$GITHUB_STEP_SUMMARY"
+            printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Validate generated content
+        if: inputs.mode != 'resolve_model_only'
         env:
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.5-flash' }}
+          GEMINI_MODEL: auto
           QUESTION_BANK_EPOCH: ${{ vars.QUESTION_BANK_EPOCH || 'gemini35_v1' }}
         run: |
           python tools/review_generated_queue.py --summary
@@ -117,6 +115,7 @@ jobs:
           READINESS_PROFILE="${{ github.event_name == 'workflow_dispatch' && inputs.readiness_profile || 'bootstrap' }}" python tools/release_readiness.py
 
       - name: Commit and push reviewed artifacts
+        if: inputs.mode != 'resolve_model_only'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

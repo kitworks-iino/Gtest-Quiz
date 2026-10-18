@@ -1,4 +1,4 @@
-"""CLI entrypoint for the Gemini 3.5 Flash question-bank pipeline."""
+"""CLI entrypoint for the automatically selected Gemini question-bank pipeline."""
 
 from __future__ import annotations
 
@@ -14,11 +14,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from gtest_quiz.bank_epoch import current_bank_version, current_model_name
-from gtest_quiz.refill_pipeline import RefillConfig, run_refill
+from gtest_quiz.env import get_env, load_dotenv
+from gtest_quiz.refill_pipeline import GeminiQuestionGenerator, RefillConfig, run_refill
 from tools.generate_coverage_report import build_coverage_report, write_coverage_report
 
 
-EXPECTED_MODEL = "gemini-3.5-flash"
 COMPLETE_TARGET_QUESTIONS_DEFAULT = 550
 EXPANDED_TARGET_QUESTIONS_DEFAULT = 1000
 
@@ -109,6 +109,7 @@ def _target_for_mode(mode: str, explicit_target: str | None) -> int:
 def _stats_payload(stats: Any) -> dict[str, Any]:
     return {
         "model_name": stats.model_name,
+        "model_selection": stats.model_selection,
         "bank_version": stats.bank_version,
         "mode": stats.mode,
         "target": getattr(stats, "target", 0),
@@ -132,32 +133,30 @@ def _stats_payload(stats: Any) -> dict[str, Any]:
     }
 
 
-def _enforce_model(model_name: str) -> None:
-    enforce = _env_bool("ENFORCE_GEMINI35", True)
-    if model_name == EXPECTED_MODEL:
-        return
-    message = f"GEMINI_MODEL is {model_name}; expected {EXPECTED_MODEL}"
-    print(f"warning: {message}", file=sys.stderr)
-    if enforce:
-        raise SystemExit(message)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the current Gemini question-bank generation pipeline.")
     parser.add_argument(
         "--mode",
-        choices=["daily", "seed", "reset_and_seed", "replace", "build_to_complete", "build_to_expanded", "validate_only"],
+        choices=["daily", "seed", "reset_and_seed", "replace", "build_to_complete", "build_to_expanded", "validate_only", "resolve_model_only"],
         default=os.getenv("GENERATION_MODE", "daily"),
     )
     parser.add_argument("--target", default=os.getenv("GENERATION_TARGET"))
     args = parser.parse_args()
 
+    load_dotenv()
     model_name = current_model_name()
-    _enforce_model(model_name)
     bank_version = current_bank_version()
     if args.mode == "validate_only":
         report = write_coverage_report()
         print(json.dumps({"mode": args.mode, "bank_version": bank_version, "coverage": report}, ensure_ascii=False, indent=2))
+        return
+    if args.mode == "resolve_model_only":
+        api_key = get_env("GEMINI_API_KEY")
+        if not api_key:
+            raise SystemExit("GEMINI_API_KEY is not set")
+        generator = GeminiQuestionGenerator(api_key=api_key, model_name=model_name)
+        print(json.dumps({"mode": args.mode, "model_selection": generator.model_selection,
+                          "api_call_count": 0}, ensure_ascii=False, indent=2))
         return
     target = _target_for_mode(args.mode, args.target)
     print(

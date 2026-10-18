@@ -7,7 +7,7 @@
 | GitHubリポジトリ | [kitworks-iino/Gtest-Quiz](https://github.com/kitworks-iino/Gtest-Quiz)。コード・問題の正本 |
 | GitHub Pages | [本番](https://kitworks-iino.github.io/Gtest-Quiz/)。[公開設定](https://github.com/kitworks-iino/Gtest-Quiz/settings/pages) |
 | GitHub Actions | [実行履歴](https://github.com/kitworks-iino/Gtest-Quiz/actions)。CI、問題補充、公開、リリース検査 |
-| Gemini API | [APIキー](https://aistudio.google.com/api-keys)。キーはGitHubの `GEMINI_API_KEY` Secret、モデルは `GEMINI_MODEL` Variable |
+| Gemini API | [APIキー](https://aistudio.google.com/api-keys)。キーはGitHubの `GEMINI_API_KEY` Secret。生成モデルは実行時に自動選択 |
 
 Google AI Proと外部アプリからのGemini API利用は別管理です。APIの費用・上限は該当Googleプロジェクトで確認します。このリポジトリから課金状態は判断できません。
 
@@ -46,13 +46,23 @@ python tools/review_generated_queue.py --summary
 python tools/auto_refill_quality.py --mode daily --target 5
 ```
 
-標準モデルは `gemini-3.5-flash` です。workflowの `ENFORCE_GEMINI35=true` では別モデルを拒否し、古いモデルへの暗黙切替は行いません。
+標準設定は `GEMINI_MODEL=auto` です。実行時にGemini APIの利用可能なモデル一覧と[Google公式のAPI料金表](https://ai.google.dev/gemini-api/docs/pricing)を取得し、標準のFree Tierで入力・出力の両方が無料と確認できる汎用テキスト生成モデルから選びます。世代番号の新しい順、同世代ではArgon → Pro → Flash → Flash-Liteの順です。preview・experimental・用途特化モデル・移動する別名は候補から外します。この規則はモデルの世代と製品区分に基づくもので、出題品質のベンチマークによる「最高性能」の保証ではありません。
+
+利用可能な一覧・料金表を取得できない場合や、条件を満たすモデルを確認できない場合は、生成を開始せず失敗として記録します。古い固定モデルや有料モデルへ暗黙に切り替えません。問題生成workflowは `auto` を指定するため、以前のリポジトリ変数 `GEMINI_MODEL` に固定モデルが残っていても参照しません。モデルIDを日常の保守で書き換える必要はありません。
+
+APIのFree Tierに対応しているモデルでも、使用するプロジェクトが有料Tierなら課金される場合があります。この選択処理は個別アカウントの課金状態・残クレジットを確認する仕組みではありません。Google AI ProのCloud特典の受取・請求先の設定・課金の有効化は変更しません。
+
+モデル選択だけを確認する場合は、`python tools/auto_refill_quality.py --mode resolve_model_only` を実行します。モデル一覧と公開料金表のみを読み取り、問題生成APIを呼ばず、問題バンクを更新しません。
 
 処理は章別の不足把握 → スキーマに沿った生成 → 品質検証 → 正解位置の配置 → バッチ検証 → 正本へ保存、の順です。解説は選択肢の内容を説明し、番号やA/B/C/Dだけで参照しません。位置参照を検出した候補は出題に入れません。
 
 既存の100問単位の正解位置分布を考慮して配置します。バッチ全体が分布検査を通らない場合は問題バンクへ追記しません。品質基準は下げません。
 
-検査対象はスキーマ、重複、選択肢、解説長、難易度、レビュー評価、出典、モデル・バンク世代、正解位置分布です。法律・倫理分野には一次資料のURL・名称・版・確認日時・根拠を持たせます。出典メタデータの存在だけで事実確認が完了したとは扱いません。
+検査対象はスキーマ、重複、選択肢、解説長、難易度、レビュー評価、出典、生成元モデルの記録・バンク世代、正解位置分布です。法律・倫理分野には一次資料のURL・名称・版・確認日時・根拠を持たせます。出典メタデータの存在だけで事実確認が完了したとは扱いません。
+
+新規問題の `provenance.model` には `auto` ではなく、実際に使ったモデルIDを保存します。過去のモデルで作られた有効な問題は、自動選択の結果が変わっても無効化・書き換えを行いません。`gemini35_v1` は既存問題バンクと学習履歴の世代識別子であり、今後使用するモデルの指定ではありません。
+
+`bank/meta.json` の `last_refill_result.model_selection` に選択モデル・候補・公式料金URL・確認日時・選択理由を記録します。coverageレポートの `model_selection_policy` は設定値、`model` はメタデータで確認できる直近の生成モデル、`last_selected_model` は直近の選択モデル、`model_distribution` は保存済み問題の生成元別件数です。選択だけで生成していない場合や生成履歴がない場合を区別します。空欄・`auto` の生成元は品質判定を通しません。固定設定と過去の生成元の不一致は参考情報として集計し、モデルが変わったことだけでは過去の問題を不合格にしません。
 
 要確認候補はレビューキューへ残します。確認済み候補の昇格は `tools/review_generated_queue.py --promote <index>` で行い、通常と同じ検査を通します。
 

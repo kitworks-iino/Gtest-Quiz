@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -23,6 +24,7 @@ from gtest_quiz.content_factory import (
 )
 from gtest_quiz.env import get_env, load_dotenv
 from gtest_quiz.meta import MetaManager
+from gtest_quiz.model_selection import resolve_model
 from gtest_quiz.question_quality import validate_generated_question
 
 NEXT_QUESTION_BANK_PATH = Path("bank/question_bank.next.jsonl")
@@ -47,6 +49,7 @@ class RefillConfig:
         per_chapter_floor: int = 10,
     ) -> None:
         self.model_name = model_name
+        self.model_selection: dict[str, Any] = {}
         self.target_daily = target_daily
         self.max_retry = max_retry
         self.min_explanation_length = min_explanation_length
@@ -71,6 +74,7 @@ class RefillStats:
         self.rate_limit_errors = 0
         self.mode = ""
         self.model_name = ""
+        self.model_selection: dict[str, Any] = {}
         self.bank_version = ""
         self.reset_performed = False
         self.old_active_question_count = 0
@@ -95,6 +99,7 @@ class RefillStats:
         item.correct_index_distribution_generated = dict(stats.correct_index_distribution_generated)
         item.mode = config.mode
         item.model_name = config.model_name
+        item.model_selection = dict(config.model_selection)
         item.bank_version = config.bank_version
         return item
 
@@ -121,12 +126,14 @@ def _load_generator(api_key: str) -> Any:
 
 class GeminiQuestionGenerator:
     def __init__(self, *, api_key: str, model_name: str, max_retry: int = 3, sleep_seconds: float = 0.4) -> None:
-        self.model_name = model_name
         self.max_retry = max_retry
         self.sleep_seconds = sleep_seconds
         self.api_call_count = 0
         self.rate_limit_errors = 0
         self.generator = _load_generator(api_key)
+        selection = resolve_model(self.generator, model_name)
+        self.model_name = selection.model_id
+        self.model_selection = asdict(selection)
 
     def generate(self, prompt: str, schema: type[GeneratedQuestionSpec]) -> Dict[str, Any]:
         last_error: Optional[Exception] = None
@@ -155,7 +162,6 @@ class GeminiQuestionGenerator:
             config={
                 "response_mime_type": "application/json",
                 "response_schema": schema,
-                "temperature": 0.62,
             },
         )
         parsed = getattr(response, "parsed", None)
@@ -275,6 +281,7 @@ def _swap_next_bank(*, config: RefillConfig, meta_path: str, stats: RefillStats,
     meta.meta["content_factory"] = {
         "last_refill_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "model": config.model_name,
+        "model_selection": config.model_selection,
         "bank_version": config.bank_version,
         "mode": config.mode,
         "target_accepts": config.target_daily,
@@ -307,6 +314,7 @@ def _save_last_refill_result(*, config: RefillConfig, meta_path: str, stats: Ref
     meta.meta["last_refill_result"] = {
         "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "model": config.model_name,
+        "model_selection": config.model_selection,
         "bank_version": config.bank_version,
         "mode": config.mode,
         "target_accepts": config.target_daily,
@@ -357,6 +365,10 @@ def run_refill(config: RefillConfig, meta_path: str = "bank/meta.json") -> Refil
         max_retry=config.max_retry,
         sleep_seconds=config.sleep_seconds_on_429,
     )
+    # Resolve once per run, before any generation or staged-bank mutation.
+    # Historical questions retain their original model provenance.
+    config.model_name = generator.model_name
+    config.model_selection = dict(generator.model_selection)
     allow_growth = config.mode in {"daily", "replace", "build_to_complete", "build_to_expanded"}
     question_bank_path = QUESTION_BANK_PATH
     review_queue_path = REVIEW_QUEUE_PATH

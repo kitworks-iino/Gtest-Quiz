@@ -127,6 +127,7 @@ def test_content_factory_accepts_and_writes_provenance(tmp_path: Path):
 
     factory = ContentFactory(
         FactoryConfig(
+            model_name="fixture-resolved-model",
             target_accepts=1,
             question_bank_path=bank,
             review_queue_path=review,
@@ -142,7 +143,7 @@ def test_content_factory_accepts_and_writes_provenance(tmp_path: Path):
     assert written["domain"] == "技術分野"
     assert written["bank_version"] == "gemini35_v1"
     assert written["provenance"]["prompt_version"]
-    assert written["provenance"]["model"] == "gemini-3.5-flash"
+    assert written["provenance"]["model"] == "fixture-resolved-model"
     assert written["provenance"]["bank_version"] == "gemini35_v1"
     assert written["provenance"]["validator_score"] >= 75
     assert written["provenance"]["review_score"] >= 95

@@ -24,7 +24,7 @@ from gtest_quiz.question_quality import (
 )
 
 
-PROMPT_VERSION = "gtest_factory_gemini35_v2_2026-10-18"
+PROMPT_VERSION = "gtest_factory_v3_2026-10-18"
 QUESTION_BANK_PATH = Path("bank/question_bank.jsonl")
 REVIEW_QUEUE_PATH = Path("bank/generated_review_queue.jsonl")
 PROVENANCE_PATH = Path("bank/question_provenance.jsonl")
@@ -421,7 +421,7 @@ def to_question_record(
     )
     record = {
         "id": f"AUTO_{stamp}_{hashlib.sha256(str(data.get('question', '')).encode('utf-8')).hexdigest()[:16]}",
-        "source": "gemini35_content_factory",
+        "source": "gemini_content_factory",
         "created_at": _now_iso(),
         "bank_version": config.bank_version,
         "domain": domain_for_chapter_group(target.chapter_group),

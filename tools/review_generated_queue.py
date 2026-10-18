@@ -101,7 +101,12 @@ def promote(
         current_count=0, target_count=1, priority=1,
         desired_difficulty=str(target_data.get("desired_difficulty", candidate["difficulty"])),
     )
-    if item.get("model") != current_model_name() or item.get("bank_version") != current_bank_version():
+    model = item.get("model")
+    requested_model = current_model_name()
+    if not isinstance(model, str) or not model.strip() or model.strip().casefold() == "auto":
+        raise ValueError("candidate must record a concrete generation model ID")
+    if ((requested_model.casefold() != "auto" and model != requested_model)
+            or item.get("bank_version") != current_bank_version()):
         raise ValueError("candidate model/bank version does not match the active bank")
     existing = load_existing_items(bank_path)
     decision = decide_candidate(

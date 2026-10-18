@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 
-DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
+DEFAULT_GEMINI_MODEL = "auto"
 DEFAULT_QUESTION_BANK_EPOCH = "gemini35_v1"
 
 
