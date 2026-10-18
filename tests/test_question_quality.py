@@ -35,3 +35,34 @@ def test_invalid_short_explanation():
 
     result = validate_generated_question(data)
     assert not result.is_valid
+
+
+@pytest.mark.parametrize("explanation", [
+    "正解理由: 選択肢2は適切です。", "誤答肢（Ａ）は異なります。",
+    "最後の選択肢は誤りです。", "選択肢の一つ目は異なります。",
+    "不正解理由、3は異なります。他の選択肢: Aは異なります。",
+    "正解はインデックス0です。", "インデックス3が正解です。",
+])
+def test_choice_references_are_detected(explanation):
+    from gtest_quiz.question_quality import has_positional_choice_reference
+    assert has_positional_choice_reference(explanation)
+
+
+@pytest.mark.parametrize("explanation", [
+    "著作権法第30条の4は、情報解析に関する規定です。",
+    "選択肢2つを比較します。", "AI技術に関する説明です。",
+    "配列のインデックス0からアクセスします。",
+])
+def test_technical_numbers_are_not_option_references(explanation):
+    from gtest_quiz.question_quality import has_positional_choice_reference
+    assert not has_positional_choice_reference(explanation)
+
+
+def test_incremental_duplicate_index_matches_full_index():
+    from gtest_quiz.question_quality import add_question_to_index, build_duplicate_index, is_probable_duplicate
+    texts = ["ニューラルネットワークの活性化関数は何か。", "機械学習の汎化性能をどう評価するか。"]
+    index = build_duplicate_index([])
+    for text in texts:
+        add_question_to_index(index, text)
+    assert index == build_duplicate_index([{"question": text} for text in texts])
+    assert is_probable_duplicate(texts[0].replace("。", "！"), index)

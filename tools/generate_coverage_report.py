@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from gtest_quiz.bank_epoch import current_bank_version, current_model_name
-from gtest_quiz.question_quality import build_duplicate_index, is_probable_duplicate
+from gtest_quiz.question_quality import (add_question_to_index, build_duplicate_index, correct_index_window_issues, is_probable_duplicate)
 
 
 BANK_PATH = Path("bank/question_bank.jsonl")
@@ -108,35 +108,14 @@ def _review_queue_summary(path: Path = REVIEW_QUEUE_PATH) -> Dict[str, Any]:
 
 
 def _duplicate_suspect_count(rows: List[Dict[str, Any]]) -> int:
-    seen: List[Dict[str, Any]] = []
-    duplicate_index = build_duplicate_index(seen)
+    duplicate_index = build_duplicate_index([])
     count = 0
     for row in rows:
         if is_probable_duplicate(str(row.get("question", "")), duplicate_index):
             count += 1
-        seen.append(row)
-        duplicate_index = build_duplicate_index(seen)
+        add_question_to_index(duplicate_index, str(row.get("question", "")))
     return count
 
-
-def _correct_window_issues(rows: List[Dict[str, Any]], window_size: int = 100) -> List[Dict[str, Any]]:
-    issues: List[Dict[str, Any]] = []
-    for start in range(0, len(rows), window_size):
-        window = rows[start : start + window_size]
-        if len(window) < 20:
-            continue
-        counts = Counter(int(row.get("correct_index", -1)) for row in window)
-        values = [counts[index] for index in range(4)]
-        expected = len(window) / 4
-        if any(value < expected * 0.5 or value > expected * 1.5 for value in values):
-            issues.append(
-                {
-                    "start": start + 1,
-                    "end": start + len(window),
-                    "correct_index_distribution": {str(index): counts[index] for index in range(4)},
-                }
-            )
-    return issues
 
 
 def difficulty_balance_ok(distribution: Dict[str, int], min_per_chapter: int) -> bool:
@@ -205,6 +184,7 @@ def build_coverage_report(
     bank_version_mismatch_count = sum(1 for row in rows if row.get("bank_version") != current_bank_version())
     review_queue = _review_queue_summary(review_queue_path)
 
+    window_issues = correct_index_window_issues(rows)
     profiles: Dict[str, Dict[str, Any]] = {}
     for profile, rule in PROFILE_RULES.items():
         min_per_chapter = rule["min_per_chapter"]
@@ -223,7 +203,7 @@ def build_coverage_report(
             and duplicate_suspect_count == 0
             and model_mismatch_count == 0
             and bank_version_mismatch_count == 0
-            and not _correct_window_issues(rows)
+            and not window_issues
             and not difficulty_failures
         )
         profiles[profile] = {
@@ -248,7 +228,7 @@ def build_coverage_report(
         "missing_chapters": missing_chapters,
         "extra_chapters": sorted(chapter for chapter, items in extra_chapters.items() if items),
         "correct_index_distribution": correct_distribution,
-        "correct_index_window_issues": _correct_window_issues(rows),
+        "correct_index_window_issues": window_issues,
         "active_review_warning_count": active_review_warning_count,
         "legal_source_missing": legal_source_missing,
         "duplicate_suspect_count": duplicate_suspect_count,

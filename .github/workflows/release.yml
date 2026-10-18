@@ -6,36 +6,37 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   release-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Validate question bank
-        run: |
-          python tools/validate_question_bank.py
-      - name: Build static PWA assets
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Build and validate the question bank
         run: |
           python tools/build_static_pwa_assets.py
-      - name: Check OpenAPI contract
-        run: |
-          pytest tests/contracts
-      - name: Gate tests
-        run: |
-          pytest tests/test_question_quality.py tests/test_content_factory.py tests/test_refill_pipeline.py tests/integration tests/backend tests/frontend tests/e2e --cov=gtest_quiz --cov=backend/app --cov-report=term-missing --cov-fail-under=70
-      - name: Learning benchmark
-        run: |
-          python tools/benchmark_learning_policy.py --compare
-      - name: Release readiness rubric
-        run: |
-          python tools/release_readiness.py
-      - name: Build artifact snapshot
-        run: |
-          tar -czf gtest-quiz-${GITHUB_REF_NAME}.tgz app.py backend frontend gtest_quiz bank deploy requirements.txt config.toml README.md docs
+          python tools/validate_question_bank.py
+      - name: Test the browser learning modules
+        run: node --test tests/frontend/*.test.mjs
+      - name: Test the content pipeline and PWA
+        run: python -m pytest --cov=gtest_quiz --cov-report=term-missing --cov-fail-under=70
+      - name: Check release readiness
+        run: python tools/release_readiness.py

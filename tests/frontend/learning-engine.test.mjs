@@ -350,3 +350,55 @@ test('matching duplicate session records collapse to one and retain the answered
   assert.equal(engine.getSession().answers[0].correct, true);
   assert.equal(engine.getSession().index, 0);
 });
+
+test('indexed search preserves case-insensitive matching across text, chapters and choices', () => {
+  const { engine } = fixture();
+  for (const query of ['AI', ' ニューラルネットワーク ', '法律・倫理・社会', 'zzzz_NO_MATCH', '']) {
+    const normalized = query.trim().toLocaleLowerCase('ja');
+    const expected = engine.bank.filter(q => `${q.question} ${q.chapter_id} ${q.chapter_group} ${q.choices.join(' ')}`.toLocaleLowerCase('ja').includes(normalized));
+    assert.deepEqual(engine.searchQuestions(query), expected);
+  }
+  assert.equal(engine.chapterCount, engine.getChapters().length);
+});
+
+test('current question saves history and feedback atomically with one write, rejects repeat submission', () => {
+  const { storage, now } = fixture();
+  const writes = [];
+  const trackedStorage = { getItem: storage.getItem, setItem: (key, value) => { writes.push(JSON.parse(value)); storage.setItem(key, value); } };
+  const engine = createEngine(payload, { storage: trackedStorage, now, random: () => 0 });
+  engine.saveSession(engine.buildSession({ limit: 2 }));
+  writes.length = 0;
+  const q = engine.getQuestion(engine.getSession().ids[0]);
+  const session = engine.answerCurrentQuestion(wrong(q), 120000);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].answers.length, 1);
+  assert.equal(writes[0].session.answers.length, 1);
+  assert.equal(session.answers[0].correct, false);
+  assert.equal(session.index, 0);
+  const restored = createEngine(payload, { storage, now });
+  assert.deepEqual(restored.getSession(), session);
+  assert.equal(restored.getStats().total, 1);
+  assert.throws(() => engine.answerCurrentQuestion(q.correct_index, 500));
+  assert.equal(engine.getStats().total, 1);
+  assert.equal(writes.length, 1);
+  session.index += 1;
+  engine.saveSession(session);
+  const next = engine.getQuestion(session.ids[1]);
+  engine.answerCurrentQuestion(next.correct_index, HOUR * 2);
+  assert.equal(engine.getStats().total, 2);
+  assert.equal(engine.getStats().correct, 1);
+  assert.equal(engine.getSession().answers[1].elapsedMs, HOUR);
+});
+
+test('invalid session answers leave persisted history and progress unchanged', () => {
+  const { engine, storage } = fixture();
+  assert.throws(() => engine.answerCurrentQuestion(0));
+  engine.saveSession(engine.buildSession({ limit: 1 }));
+  const before = storage.getItem(KEY);
+  for (const [choice, elapsed] of [[-1, 0], [99, 0], [1.5, 0], [0, NaN], [0, -1]]) {
+    assert.throws(() => engine.answerCurrentQuestion(choice, elapsed));
+    assert.equal(storage.getItem(KEY), before);
+    assert.equal(engine.getStats().total, 0);
+    assert.equal(engine.getSession().answers.length, 0);
+  }
+});

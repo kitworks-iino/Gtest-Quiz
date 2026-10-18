@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Sequence, Set
 
@@ -72,6 +74,64 @@ def build_duplicate_index(items: Iterable[Dict[str, Any]]) -> DuplicateIndex:
         normalized_hashes=normalized_hashes,
         fingerprints=fingerprints,
     )
+
+
+def add_question_to_index(index: DuplicateIndex, question: str) -> None:
+    """Update the index once per accepted row instead of rehashing the bank."""
+    if question.strip():
+        index.exact_hashes.add(exact_question_hash(question))
+        index.normalized_hashes.add(normalized_question_hash(question))
+        index.fingerprints.add(fingerprint_tokens(question))
+
+
+# Keep these conservative patterns aligned with frontend/src/content-guard.js.
+POSITIONAL_CHOICE_PATTERNS = tuple(re.compile(pattern) for pattern in (
+    r"(?:選択肢|正答肢|誤答肢)\s*(?:の\s*)?(?:\(\s*)?[0-4A-D](?![A-Za-z0-9つ個件])",
+    r"(?:正解|不正解|誤答)(?:は)?\s*(?:\(\s*)?インデックス\s*[0-4](?![0-9])",
+    r"インデックス\s*[0-4](?![0-9])(?:が正解|の選択肢|は誤り)",
+    r"(?:最初|最後|[1-4一二三四](?:つ目|番目))の選択肢",
+    r"選択肢の[1-4一二三四](?:つ目|番目)",
+    r"(?:他の選択肢|不正解(?:の選択肢)?|誤答)(?:について)?\s*[、,:：]\s*[0-4A-D](?:番目|つ目)?(?:\s*(?:・|、|と|や|および|及び)\s*[0-4A-D](?:番目|つ目)?)*(?=は|も|の|について)",
+))
+
+
+def has_positional_choice_reference(explanation: str) -> bool:
+    text = unicodedata.normalize("NFKC", explanation)
+    return any(pattern.search(text) for pattern in POSITIONAL_CHOICE_PATTERNS)
+
+
+def correct_index_window_issues(rows: Sequence[Dict[str, Any]], window_size: int = 100) -> List[Dict[str, Any]]:
+    issues = []
+    for start in range(0, len(rows), window_size):
+        window = rows[start : start + window_size]
+        if len(window) < 20:
+            continue
+        counts = Counter(row.get("correct_index") for row in window)
+        expected = len(window) / 4
+        if any(counts[index] < expected * 0.5 or counts[index] > expected * 1.5 for index in range(4)):
+            issues.append({
+                "start": start + 1,
+                "end": start + len(window),
+                "correct_index_distribution": {str(index): counts[index] for index in range(4)},
+            })
+    return issues
+
+
+def correct_index_distribution_errors(rows: Sequence[Dict[str, Any]]) -> List[str]:
+    """Shared publication gate; thresholds match the existing bank validator."""
+    if len(rows) < 4:
+        return []
+    counts = Counter(row.get("correct_index") for row in rows)
+    errors = []
+    missing = [index for index in range(4) if counts[index] == 0]
+    if missing:
+        errors.append(f"correct_index distribution has empty buckets: {missing}; counts={dict(counts)}")
+    values = [counts[index] for index in range(4)]
+    if len(rows) >= 20 and max(values) - min(values) > max(5, len(rows) // 4):
+        errors.append(f"correct_index distribution is too skewed: counts={dict(counts)}")
+    for issue in correct_index_window_issues(rows):
+        errors.append(f"correct_index distribution is skewed in rows {issue['start']}-{issue['end']}: counts={issue['correct_index_distribution']}")
+    return errors
 
 
 def is_probable_duplicate(question: str, duplicate_index: DuplicateIndex) -> bool:

@@ -13,17 +13,19 @@ if str(ROOT) not in sys.path:
 
 from gtest_quiz.bank_epoch import current_bank_version, current_model_name
 from gtest_quiz.content_factory import (
-    LEGAL_SOURCE_FIELDS,
+    BalancedAnswerPositions,
+    CoverageTarget,
+    FactoryConfig,
+    GeneratedQuestionSpec,
     PROVENANCE_PATH,
     QUESTION_BANK_PATH,
     REVIEW_QUEUE_PATH,
     _jsonl_append,
-    domain_for_chapter_group,
-    is_legal_target,
-    review_generated_candidate,
-    shuffle_choices_for_record,
+    decide_candidate,
+    load_existing_items,
+    to_question_record,
 )
-from gtest_quiz.question_quality import validate_generated_question
+from gtest_quiz.question_quality import build_duplicate_index, correct_index_distribution_errors
 
 REVIEW_ARCHIVE_DIR = Path("bank/review_archive")
 
@@ -80,66 +82,46 @@ def archive_rejects(*, queue_path: Path = REVIEW_QUEUE_PATH, archive_dir: Path =
     return {"archived": len(reject_to_archive), "remaining": len(remaining), "archive_path": str(archive_path)}
 
 
-def promote(index: int, *, queue_path: Path = REVIEW_QUEUE_PATH, bank_path: Path = QUESTION_BANK_PATH) -> Dict[str, Any]:
+def promote(
+    index: int,
+    *,
+    queue_path: Path = REVIEW_QUEUE_PATH,
+    bank_path: Path = QUESTION_BANK_PATH,
+    provenance_path: Path = PROVENANCE_PATH,
+) -> Dict[str, Any]:
     items = load_queue(queue_path)
     if index < 0 or index >= len(items):
         raise IndexError("queue index out of range")
     item = items[index]
-    candidate = item.get("candidate")
-    target = item.get("target", {})
-    if not isinstance(candidate, dict):
-        raise ValueError("queue item has no candidate")
-    bank_version = str(item.get("bank_version") or current_bank_version())
-    validation = validate_generated_question(candidate, min_explanation_length=120)
-    if not validation.is_valid:
-        raise ValueError(f"candidate is not promotable: {validation.reasons}")
-    review_score, review_reasons = review_generated_candidate(candidate, min_explanation_length=120)
-    if review_score < 95 or review_reasons:
-        raise ValueError(f"candidate has review warnings: score={review_score}, reasons={review_reasons}")
-
-    choices, correct_index, shuffle_seed = shuffle_choices_for_record(
-        [str(choice) for choice in candidate["choices"]],
-        int(candidate["correct_index"]),
-        seed_material=f"{bank_version}:review:{index}:{candidate.get('question', '')}",
+    candidate = GeneratedQuestionSpec.model_validate(item.get("candidate"), strict=True).model_dump()
+    target_data = item.get("target", {})
+    target = CoverageTarget(
+        chapter_group=str(target_data.get("chapter_group", "")),
+        chapter_id=str(target_data.get("chapter_id", candidate["syllabus_node"])),
+        current_count=0, target_count=1, priority=1,
+        desired_difficulty=str(target_data.get("desired_difficulty", candidate["difficulty"])),
     )
-
-    record = {
-        "id": f"REVIEW_{index}_{abs(hash(candidate.get('question', ''))) % 100000}",
-        "source": "review_promoted",
-        "created_at": item.get("queued_at", ""),
-        "bank_version": bank_version,
-        "domain": domain_for_chapter_group(str(target.get("chapter_group", ""))),
-        "chapter_group": target.get("chapter_group", ""),
-        "chapter_id": target.get("chapter_id", candidate.get("syllabus_node", "")),
-        "difficulty": candidate.get("difficulty", "standard"),
-        "question": candidate["question"],
-        "choices": choices,
-        "correct_index": correct_index,
-        "explanation": candidate["explanation"],
-        "syllabus": "G2024_v1.3",
-        "provenance": {
-            "model": item.get("model", current_model_name()),
-            "prompt_version": item.get("prompt_version", ""),
-            "generated_at": item.get("queued_at", ""),
-            "bank_version": bank_version,
-            "validator_score": validation.score,
-            "validator_reasons": validation.reasons,
-            "review_score": review_score,
-            "review_reasons": review_reasons,
-            "accepted_with_review_warnings": False,
-            "choice_shuffle_seed": shuffle_seed,
-            "syllabus_node": candidate.get("syllabus_node", target.get("chapter_id", "")),
-            "concepts": candidate.get("concepts", []),
-            "review_queue_index": index,
-        },
-    }
-    if is_legal_target(str(record["chapter_group"]), str(record["chapter_id"]), str(record["domain"])):
-        for field in LEGAL_SOURCE_FIELDS:
-            record[field] = str(candidate.get(field, "")).strip()
-            if not record[field]:
-                raise ValueError(f"legal/guideline candidate missing {field}")
+    if item.get("model") != current_model_name() or item.get("bank_version") != current_bank_version():
+        raise ValueError("candidate model/bank version does not match the active bank")
+    existing = load_existing_items(bank_path)
+    decision = decide_candidate(
+        candidate, duplicate_index=build_duplicate_index(existing), target=target,
+        min_explanation_length=120, review_threshold=95,
+    )
+    if decision.action != "accept":
+        raise ValueError(f"candidate is not promotable: {decision.reasons}")
+    record = to_question_record(
+        candidate, target=target,
+        config=FactoryConfig(model_name=item["model"], bank_version=item["bank_version"], prompt_version=item["prompt_version"]),
+        decision=decision, desired_correct_index=BalancedAnswerPositions(existing).take(),
+    )
+    record["source"] = "review_promoted"
+    record["provenance"]["review_queue_index"] = index
+    errors = correct_index_distribution_errors([*existing, record])
+    if errors:
+        raise ValueError("candidate cannot be published yet: " + "; ".join(errors))
     _jsonl_append(bank_path, record)
-    _jsonl_append(PROVENANCE_PATH, {"id": record["id"], **record["provenance"]})
+    _jsonl_append(provenance_path, {"id": record["id"], **record["provenance"]})
     return record
 
 

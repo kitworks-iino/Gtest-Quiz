@@ -8,12 +8,12 @@ const holds = JSON.parse(await readFile(new URL('../../frontend/src/question-rev
 const emptyHolds = { ...holds, ids: [] };
 const question = (id, explanation) => ({ id, explanation });
 
-test('real bank retains 497 questions across all 55 chapters and keeps its source untouched', () => {
+test('the growing bank retains usable chapters, excludes held ids and stays untouched', () => {
   const original = JSON.stringify(bank);
   const result = partitionQuestions(bank, holds);
-  assert.equal(result.sourceCount, 919);
-  assert.equal(result.heldCount, 422);
-  assert.equal(result.questions.length, 497);
+  assert.equal(result.sourceCount, bank.questions.length);
+  assert.ok(result.questions.length > 0);
+  assert.equal(result.questions.length + result.heldCount, bank.questions.length);
   assert.equal(new Set(result.questions.map(row => row.chapter_id)).size, 55);
   assert.ok(result.questions.every(row => !holds.ids.includes(row.id)));
   assert.equal(JSON.stringify(bank), original);
@@ -54,10 +54,11 @@ test('append-only updates keep historical holds and inspect new wording despite 
   const safe = question('new-safe', '誤差逆伝播法は勾配を効率よく求めます。');
   const unsafe = question('new-needs-review', '選択肢3は誤りです。');
   const updated = { ...bank, meta: { ...bank.meta, content_hash: 'new-daily-bank-hash' }, questions: [...bank.questions, safe, unsafe] };
+  const before = partitionQuestions(bank, holds);
   const result = partitionQuestions(updated, holds);
-  assert.equal(result.sourceCount, 921);
-  assert.equal(result.heldCount, 423);
-  assert.equal(result.questions.length, 498);
+  assert.equal(result.sourceCount, before.sourceCount + 2);
+  assert.equal(result.heldCount, before.heldCount + 1);
+  assert.equal(result.questions.length, before.questions.length + 1);
   assert.ok(result.questions.includes(safe));
   assert.ok(!result.questions.includes(unsafe));
 });

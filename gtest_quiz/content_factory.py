@@ -9,21 +9,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from gtest_quiz.bank_epoch import DEFAULT_GEMINI_MODEL, DEFAULT_QUESTION_BANK_EPOCH
 from gtest_quiz.meta import MetaManager
-from gtest_quiz.models import Question
-from gtest_quiz.question_bank import load_question_bank
 from gtest_quiz.question_quality import (
     ValidationResult,
+    add_question_to_index,
+    correct_index_distribution_errors,
+    has_positional_choice_reference,
     build_duplicate_index,
     is_probable_duplicate,
     validate_generated_question,
 )
 
 
-PROMPT_VERSION = "gtest_factory_gemini35_v1_2026-05-26"
+PROMPT_VERSION = "gtest_factory_gemini35_v2_2026-10-18"
 QUESTION_BANK_PATH = Path("bank/question_bank.jsonl")
 REVIEW_QUEUE_PATH = Path("bank/generated_review_queue.jsonl")
 PROVENANCE_PATH = Path("bank/question_provenance.jsonl")
@@ -160,6 +161,8 @@ prompt_version: {prompt_version}
 - response_schema に完全準拠
 - 正解は1つ
 - explanation は120文字以上
+- 選択肢は保存時に並べ替えるため、問題文・選択肢・解説で選択肢の番号・記号・位置を参照しない
+- 解説では選択肢の具体的な内容・概念名を用いて正解理由と不正解理由を説明する
 - explanation は「正解理由」と「不正解理由」または誤答との差分を含める
 - syllabus_node には対象項目名を入れる
 - 法律・倫理・ガイドライン系の問題では source_url/source_title/source_version/source_checked_at/legal_basis に公式出典を入れる
@@ -185,16 +188,17 @@ def load_existing_items(path: Path = QUESTION_BANK_PATH) -> List[Dict[str, Any]]
         return []
     items: List[Dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as handle:
-        for raw in handle:
+        for line_number, raw in enumerate(handle, 1):
             raw = raw.strip()
             if not raw:
                 continue
             try:
                 data = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(data, dict):
-                items.append(data)
+            except json.JSONDecodeError as error:
+                raise ValueError(f"{path}:{line_number}: invalid JSON") from error
+            if not isinstance(data, dict):
+                raise ValueError(f"{path}:{line_number}: expected a question object")
+            items.append(data)
     return items
 
 
@@ -353,6 +357,9 @@ def review_generated_candidate(
     if not any(token in explanation for token in ("不正解", "誤答", "他の選択肢", "一方", "ではない", "ではなく", "ありません", "差")):
         score -= 10
         reasons.append("explanation does not distinguish distractors")
+    if any(has_positional_choice_reference(text) for text in [str(data.get("question", "")), explanation, *choices]):
+        score -= 100
+        reasons.append("choice position references are unsafe to shuffle; use option text or concept names")
     if not concepts:
         score -= 10
         reasons.append("concept tags are missing")
@@ -399,7 +406,10 @@ def to_question_record(
     target: CoverageTarget,
     config: FactoryConfig,
     decision: CandidateDecision,
+    desired_correct_index: int | None = None,
 ) -> Dict[str, Any]:
+    if decision.action != "accept":
+        raise ValueError("Only accepted candidates may become question records")
     stamp = int(time.time() * 1000)
     original_choices = [str(choice) for choice in data.get("choices", [])]
     original_correct_index = int(data.get("correct_index", 0))
@@ -407,9 +417,10 @@ def to_question_record(
         original_choices,
         original_correct_index,
         seed_material=f"{config.bank_version}:{config.prompt_version}:{target.chapter_id}:{data.get('question', '')}:{stamp}",
+        desired_correct_index=desired_correct_index,
     )
     record = {
-        "id": f"AUTO_{stamp}_{abs(hash(data.get('question', ''))) % 100000}",
+        "id": f"AUTO_{stamp}_{hashlib.sha256(str(data.get('question', '')).encode('utf-8')).hexdigest()[:16]}",
         "source": "gemini35_content_factory",
         "created_at": _now_iso(),
         "bank_version": config.bank_version,
@@ -444,6 +455,29 @@ def to_question_record(
     return record
 
 
+class BalancedAnswerPositions:
+    """Fill the least-used answer slot in the current publication window."""
+    def __init__(self, rows: List[Dict[str, Any]]) -> None:
+        self.total = [0] * 4
+        self.window = [0] * 4
+        self.count = len(rows)
+        for index, row in enumerate(rows):
+            value = row.get("correct_index")
+            if type(value) is int and 0 <= value < 4:
+                self.total[value] += 1
+                if index >= len(rows) - len(rows) % 100:
+                    self.window[value] += 1
+
+    def take(self) -> int:
+        position = min(range(4), key=lambda index: (self.window[index], self.total[index], index))
+        self.total[position] += 1
+        self.window[position] += 1
+        self.count += 1
+        if self.count % 100 == 0:
+            self.window = [0] * 4
+        return position
+
+
 class ContentFactory:
     def __init__(self, config: FactoryConfig, generator: QuestionGenerator) -> None:
         self.config = config
@@ -469,6 +503,8 @@ class ContentFactory:
 
         stats = FactoryStats(targets=len(targets))
         accepted_records: List[Dict[str, Any]] = []
+        accepted_candidates: list[tuple[CoverageTarget, Dict[str, Any], CandidateDecision]] = []
+        positions = BalancedAnswerPositions(existing)
         deadline = time.monotonic() + (self.config.max_runtime_minutes * 60)
         attempt_budget = max(
             self.config.target_accepts * self.config.max_attempts_per_target * 4,
@@ -497,8 +533,23 @@ class ContentFactory:
                     stats.generated += 1
                 except Exception as e:
                     stats.errors += 1
-                    if not _is_transient_generation_error(str(e)):
-                        self._queue_error(target, str(e))
+                    if _is_transient_generation_error(str(e)):
+                        # Generator retries are exhausted; do not multiply the
+                        # same quota failure by the factory attempt budget.
+                        attempt_budget = 0
+                        break
+                    if getattr(e, "code", None) in {400, 401, 403, 404}:
+                        raise
+                    self._queue_error(target, str(e))
+                    continue
+
+                try:
+                    data = GeneratedQuestionSpec.model_validate(data, strict=True).model_dump()
+                except ValidationError as error:
+                    reasons = [f"schema: {item['loc']}: {item['msg']}" for item in error.errors()]
+                    decision = CandidateDecision("reject", ValidationResult(False, 0, reasons), False, reasons)
+                    stats.rejected += 1
+                    self._queue_review(target, data, decision)
                     continue
 
                 decision = decide_candidate(
@@ -520,23 +571,40 @@ class ContentFactory:
                     self._queue_review(target, data, decision)
                     continue
 
-                record = to_question_record(data, target=target, config=self.config, decision=decision)
-                _jsonl_append(self.config.question_bank_path, record)
-                _jsonl_append(self.config.provenance_path, {"id": record["id"], **record["provenance"]})
+                record = to_question_record(
+                    data, target=target, config=self.config, decision=decision,
+                    desired_correct_index=positions.take(),
+                )
                 accepted_records.append(record)
+                accepted_candidates.append((target, data, decision))
                 stats.accepted += 1
                 key = str(record.get("correct_index", ""))
                 if key in stats.correct_index_distribution_generated:
                     stats.correct_index_distribution_generated[key] += 1
-                duplicate_index = build_duplicate_index([*existing, *accepted_records])
+                add_question_to_index(duplicate_index, str(record["question"]))
                 break
 
+        # Publish only a complete valid batch. A quota interruption must not
+        # append a partial batch that would fail the same downstream gate.
+        distribution_errors = correct_index_distribution_errors([*existing, *accepted_records]) if accepted_records else []
+        if distribution_errors:
+            for target, data, decision in accepted_candidates:
+                review = CandidateDecision("review", decision.validation, False, distribution_errors, decision.review_score, distribution_errors)
+                self._queue_review(target, data, review)
+            stats.queued_for_review += len(accepted_records)
+            stats.accepted = 0
+            stats.correct_index_distribution_generated = {str(index): 0 for index in range(4)}
+            accepted_records.clear()
+        for record in accepted_records:
+            _jsonl_append(self.config.question_bank_path, record)
+            _jsonl_append(self.config.provenance_path, {"id": record["id"], **record["provenance"]})
+
+        stats.api_call_count = int(getattr(self.generator, "api_call_count", stats.generated))
+        stats.rate_limit_errors = int(getattr(self.generator, "rate_limit_errors", 0))
         if self.config.update_meta and (
             stats.generated or stats.accepted or stats.queued_for_review or stats.rejected or stats.duplicates
         ):
-            stats.api_call_count = int(getattr(self.generator, "api_call_count", stats.generated))
-            stats.rate_limit_errors = int(getattr(self.generator, "rate_limit_errors", 0))
-            total_questions = len(load_existing_items(self.config.question_bank_path))
+            total_questions = len(existing) + len(accepted_records)
             meta.meta["bank_version"] = self.config.bank_version
             meta.meta["content_factory"] = {
                 "last_refill_at": _now_iso(),
@@ -604,7 +672,3 @@ class ContentFactory:
 def _is_transient_generation_error(error: str) -> bool:
     text = error.lower()
     return "429" in text or "rate limit" in text or "quota" in text or "resource exhausted" in text
-
-
-def question_to_model(data: Dict[str, Any]) -> Question:
-    return Question.from_dict(data)

@@ -48,7 +48,7 @@ def test_rebuilding_same_bank_and_shell_has_no_diff(static_build):
 
 
 @pytest.mark.parametrize("filename", [
-    "index.html", "offline-app.js", "styles.css", "learning-engine.js", "content-guard.js",
+    "index.html", "offline-app.js", "styles.css", "learning-engine.js", "content-guard.js", "ui.js",
     "manifest.webmanifest", "assets/InterVariable.woff2", "service-worker.js",
 ])
 def test_ui_only_change_invalidates_offline_cache(static_build, filename):

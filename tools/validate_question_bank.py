@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from gtest_quiz.bank_epoch import current_bank_version, current_model_name
-from gtest_quiz.question_quality import build_duplicate_index, is_probable_duplicate, validate_generated_question
+from gtest_quiz.question_quality import (add_question_to_index, build_duplicate_index, correct_index_distribution_errors, is_probable_duplicate, validate_generated_question)
 
 
 BANK_PATH = Path("bank/question_bank.jsonl")
@@ -76,27 +76,7 @@ def is_legal_row(row: Dict[str, Any]) -> bool:
 
 
 def _distribution_errors(rows: List[Dict[str, Any]], path: Path) -> List[str]:
-    if len(rows) < 4:
-        return []
-    counts = Counter(int(row.get("correct_index", -1)) for row in rows if row.get("correct_index") in {0, 1, 2, 3})
-    errors: List[str] = []
-    missing = [index for index in range(4) if counts[index] == 0]
-    if missing:
-        errors.append(f"{path}: correct_index distribution has empty buckets: {missing}; counts={dict(counts)}")
-    full_counts = [counts[index] for index in range(4)]
-    if len(rows) >= 20 and max(full_counts) - min(full_counts) > max(5, len(rows) // 4):
-        errors.append(f"{path}: correct_index distribution is too skewed: counts={dict(counts)}")
-    for start in range(0, len(rows), 100):
-        window = rows[start : start + 100]
-        if len(window) < 20:
-            continue
-        window_counts = Counter(int(row.get("correct_index", -1)) for row in window if row.get("correct_index") in {0, 1, 2, 3})
-        expected = len(window) / 4
-        for index in range(4):
-            if window_counts[index] < expected * 0.5 or window_counts[index] > expected * 1.5:
-                errors.append(f"{path}: correct_index distribution is skewed in rows {start + 1}-{start + len(window)}: counts={dict(window_counts)}")
-                break
-    return errors
+    return [f"{path}: {error}" for error in correct_index_distribution_errors(rows)]
 
 
 def validate_question_bank(path: Path = BANK_PATH) -> List[str]:
@@ -108,8 +88,7 @@ def validate_question_bank(path: Path = BANK_PATH) -> List[str]:
     expected_bank_version = current_bank_version()
     expected_model = current_model_name()
     ids = Counter(str(row.get("id", "")) for row in rows)
-    seen_questions: List[Dict[str, Any]] = []
-    duplicate_index = build_duplicate_index(seen_questions)
+    duplicate_index = build_duplicate_index([])
 
     for row in rows:
         line_no = row.get("_line_no", "?")
@@ -177,8 +156,7 @@ def validate_question_bank(path: Path = BANK_PATH) -> List[str]:
         question = str(row.get("question", ""))
         if is_probable_duplicate(question, duplicate_index):
             errors.append(f"{path}:{line_no}: probable duplicate question")
-        seen_questions.append(row)
-        duplicate_index = build_duplicate_index(seen_questions)
+        add_question_to_index(duplicate_index, question)
 
     errors.extend(_distribution_errors(rows, path))
     return errors

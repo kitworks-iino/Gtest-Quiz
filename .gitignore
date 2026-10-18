@@ -2,15 +2,12 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
-
-# Local runtime artifacts
-.runtime/
-backend/app/*.db
-backend/app/test_*.db
+.venv/
 
 # Local mutable metadata
-bank/meta.json
 bank/*.next.jsonl
 refill-result.json
 

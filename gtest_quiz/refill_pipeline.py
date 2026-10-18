@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
@@ -113,19 +113,10 @@ def _safe_parse_json(text: str) -> Optional[Dict[str, object]]:
         return None
 
 
-def _load_generator(api_key: str, model_name: str) -> Tuple[str, Any]:
-    try:
-        from google import genai
+def _load_generator(api_key: str) -> Any:
+    from google import genai
 
-        return "google-genai", genai.Client(api_key=api_key)
-    except Exception:
-        try:
-            import google.generativeai as legacy_genai
-        except Exception as e:
-            raise RuntimeError("Install google-genai to use Gemini refill generation") from e
-
-        legacy_genai.configure(api_key=api_key)
-        return "legacy", legacy_genai.GenerativeModel(model_name)
+    return genai.Client(api_key=api_key)
 
 
 class GeminiQuestionGenerator:
@@ -135,11 +126,11 @@ class GeminiQuestionGenerator:
         self.sleep_seconds = sleep_seconds
         self.api_call_count = 0
         self.rate_limit_errors = 0
-        self.generator_kind, self.generator = _load_generator(api_key, model_name)
+        self.generator = _load_generator(api_key)
 
     def generate(self, prompt: str, schema: type[GeneratedQuestionSpec]) -> Dict[str, Any]:
         last_error: Optional[Exception] = None
-        for _ in range(self.max_retry):
+        for attempt in range(self.max_retry):
             try:
                 data = self._generate_once(prompt, schema)
                 if isinstance(data, dict):
@@ -148,32 +139,31 @@ class GeminiQuestionGenerator:
                 last_error = e
                 if _is_rate_limit_error(e):
                     self.rate_limit_errors += 1
-            time.sleep(self.sleep_seconds)
+                elif getattr(e, "code", None) in {400, 401, 403, 404}:
+                    raise
+            if attempt + 1 < self.max_retry:
+                time.sleep(self.sleep_seconds)
         if last_error:
             raise last_error
         raise RuntimeError("Gemini did not return a structured question")
 
     def _generate_once(self, prompt: str, schema: type[BaseModel]) -> Optional[Dict[str, Any]]:
         self.api_call_count += 1
-        if self.generator_kind == "google-genai":
-            response = self.generator.models.generate_content(
-                model=self.model_name,
-                contents=prompt,
-                config={
-                    "response_mime_type": "application/json",
-                    "response_schema": schema,
-                    "temperature": 0.62,
-                },
-            )
-            parsed = getattr(response, "parsed", None)
-            if isinstance(parsed, BaseModel):
-                return parsed.model_dump()
-            if isinstance(parsed, dict):
-                return parsed
-            return _safe_parse_json(getattr(response, "text", ""))
-
-        response = self.generator.generate_content(prompt)
-        return _safe_parse_json(getattr(response, "text", ""))
+        response = self.generator.models.generate_content(
+            model=self.model_name,
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": schema,
+                "temperature": 0.62,
+            },
+        )
+        parsed = getattr(response, "parsed", None)
+        if isinstance(parsed, BaseModel):
+            return parsed.model_dump()
+        if isinstance(parsed, dict):
+            return parsed
+        return _safe_parse_json(getattr(response, "text", "") or "")
 
 
 def _is_rate_limit_error(error: Exception) -> bool:
@@ -195,44 +185,15 @@ def _correct_index_distribution(rows: list[Dict[str, Any]]) -> Dict[str, int]:
     return counts
 
 
-def _clear_next_bank() -> None:
-    for path in (NEXT_QUESTION_BANK_PATH, NEXT_REVIEW_QUEUE_PATH, NEXT_PROVENANCE_PATH):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("", encoding="utf-8")
+def _prepare_next_bank(*, copy_active: bool = False) -> None:
+    for active, staged in (
+        (QUESTION_BANK_PATH, NEXT_QUESTION_BANK_PATH),
+        (REVIEW_QUEUE_PATH, NEXT_REVIEW_QUEUE_PATH),
+        (PROVENANCE_PATH, NEXT_PROVENANCE_PATH),
+    ):
+        staged.parent.mkdir(parents=True, exist_ok=True)
+        staged.write_bytes(active.read_bytes() if copy_active and active.exists() else b"")
 
-
-def reset_active_bank(*, meta_path: str = "bank/meta.json", bank_version: str = DEFAULT_QUESTION_BANK_EPOCH) -> Dict[str, int]:
-    old_count = len(load_existing_items(QUESTION_BANK_PATH))
-    for path in (QUESTION_BANK_PATH, REVIEW_QUEUE_PATH, PROVENANCE_PATH):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("", encoding="utf-8")
-
-    meta = MetaManager(meta_path)
-    meta.load()
-    meta.meta["bank_version"] = bank_version
-    meta.meta["quota_estimate"] = {
-        "total_used_tokens": 0,
-        "estimated_limit_tokens": None,
-        "last_429_at": None,
-        "last_error": None,
-    }
-    meta.meta["question_bank"] = {
-        "path": str(QUESTION_BANK_PATH),
-        "bank_version": bank_version,
-        "total_questions": 0,
-        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    }
-    meta.meta["content_factory"] = {
-        "last_reset_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "bank_version": bank_version,
-        "reset_performed": True,
-        "old_active_question_count": old_count,
-        "deleted_question_count": old_count,
-        "new_active_question_count": 0,
-    }
-    meta.meta["last_chapter_id"] = None
-    meta.save()
-    return {"old_active_question_count": old_count, "deleted_question_count": old_count, "new_active_question_count": 0}
 
 
 def _replacement_candidates(config: RefillConfig) -> list[Dict[str, Any]]:
@@ -268,19 +229,26 @@ def _replacement_targets(config: RefillConfig, candidates: list[Dict[str, Any]])
     return targets
 
 
-def _drop_replaced_items(config: RefillConfig, replacement_count: int) -> int:
-    if replacement_count <= 0:
-        return 0
-    candidates = _replacement_candidates(config)
-    drop_ids = {str(row.get("id", "")) for row in candidates[:replacement_count]}
-    if not drop_ids:
-        return 0
-    rows = [row for row in load_existing_items(QUESTION_BANK_PATH) if str(row.get("id", "")) not in drop_ids]
-    _write_jsonl(QUESTION_BANK_PATH, rows)
+def _drop_replaced_items(
+    candidates: list[Dict[str, Any]], new_rows: list[Dict[str, Any]],
+    *, bank_path: Path = NEXT_QUESTION_BANK_PATH, provenance_path: Path = NEXT_PROVENANCE_PATH,
+) -> int:
+    """Replace only old questions in chapters that actually gained a candidate."""
+    remaining = list(candidates)
+    drop_ids: set[str] = set()
+    for new_row in new_rows:
+        for candidate in remaining:
+            if all(candidate.get(key) == new_row.get(key) for key in ("chapter_group", "chapter_id")):
+                drop_ids.add(str(candidate["id"]))
+                remaining.remove(candidate)
+                break
+    if drop_ids:
+        _write_jsonl(bank_path, [row for row in load_existing_items(bank_path) if str(row.get("id")) not in drop_ids])
+        _write_jsonl(provenance_path, [row for row in load_existing_items(provenance_path) if str(row.get("id")) not in drop_ids])
     return len(drop_ids)
 
 
-def _swap_next_bank(*, config: RefillConfig, meta_path: str, stats: RefillStats, before_count: int) -> None:
+def _swap_next_bank(*, config: RefillConfig, meta_path: str, stats: RefillStats, before_count: int, deleted_count: int | None = None) -> None:
     from tools.validate_question_bank import validate_question_bank
 
     errors = validate_question_bank(NEXT_QUESTION_BANK_PATH)
@@ -321,9 +289,9 @@ def _swap_next_bank(*, config: RefillConfig, meta_path: str, stats: RefillStats,
         "correct_index_distribution_before": stats.correct_index_distribution_before,
         "correct_index_distribution_generated": stats.correct_index_distribution_generated,
         "correct_index_distribution_after": _correct_index_distribution(load_existing_items(QUESTION_BANK_PATH)),
-        "reset_performed": True,
+        "reset_performed": config.reset_question_bank or config.mode == "reset_and_seed",
         "old_active_question_count": before_count,
-        "deleted_question_count": before_count,
+        "deleted_question_count": before_count if deleted_count is None else deleted_count,
         "new_active_question_count": total_questions,
     }
     meta.meta["last_chapter_id"] = None
@@ -395,15 +363,17 @@ def run_refill(config: RefillConfig, meta_path: str = "bank/meta.json") -> Refil
     provenance_path = PROVENANCE_PATH
     update_meta = True
     explicit_targets = None
-    if reset_requested:
-        _clear_next_bank()
+    replacement_candidates: list[Dict[str, Any]] = []
+    if reset_requested or config.mode == "replace":
+        _prepare_next_bank(copy_active=not reset_requested)
         question_bank_path = NEXT_QUESTION_BANK_PATH
         review_queue_path = NEXT_REVIEW_QUEUE_PATH
         provenance_path = NEXT_PROVENANCE_PATH
         update_meta = False
         allow_growth = True
-    elif config.mode == "replace":
-        explicit_targets = _replacement_targets(config, _replacement_candidates(config))
+        if not reset_requested:
+            replacement_candidates = _replacement_candidates(config)
+            explicit_targets = _replacement_targets(config, replacement_candidates)
 
     factory = ContentFactory(
         FactoryConfig(
@@ -439,8 +409,11 @@ def run_refill(config: RefillConfig, meta_path: str = "bank/meta.json") -> Refil
                 "deleted_question_count": 0,
                 "new_active_question_count": before_count,
             }
-    elif config.mode == "replace":
-        _drop_replaced_items(config, stats.accepted)
+    elif config.mode == "replace" and stats.accepted:
+        new_rows = load_existing_items(NEXT_QUESTION_BANK_PATH)[before_count:]
+        removed = _drop_replaced_items(replacement_candidates, new_rows)
+        _swap_next_bank(config=config, meta_path=meta_path, stats=stats, before_count=before_count, deleted_count=removed)
+        reset_info["deleted_question_count"] = removed
     stats.api_call_count = generator.api_call_count
     stats.rate_limit_errors = generator.rate_limit_errors
     stats.reset_performed = bool(reset_requested and stats.accepted > 0)

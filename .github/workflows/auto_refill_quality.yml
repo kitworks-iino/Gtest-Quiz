@@ -41,9 +41,14 @@ concurrency:
   group: question-bank-quality-refill
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   auto-refill-quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
 
     steps:
       - name: Checkout repository
@@ -53,11 +58,17 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: python -m pip install -r requirements.txt
 
       - name: Run schema-first quality refill
         env:
@@ -99,10 +110,10 @@ jobs:
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.5-flash' }}
           QUESTION_BANK_EPOCH: ${{ vars.QUESTION_BANK_EPOCH || 'gemini35_v1' }}
         run: |
-          python tools/validate_question_bank.py
           python tools/review_generated_queue.py --summary
           python tools/generate_coverage_report.py
           python tools/build_static_pwa_assets.py
+          python tools/validate_question_bank.py
           READINESS_PROFILE="${{ github.event_name == 'workflow_dispatch' && inputs.readiness_profile || 'bootstrap' }}" python tools/release_readiness.py
 
       - name: Commit and push reviewed artifacts
@@ -110,15 +121,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add bank/question_bank.jsonl || true
-          git add bank/meta.json || true
-          git add bank/generated_review_queue.jsonl || true
-          git add bank/question_provenance.jsonl || true
-          git add bank/coverage_report.json || true
-          git add frontend/src/question-bank.json || true
-          git add frontend/src/offline-app.js || true
-          git add frontend/src/service-worker.js || true
-          git add frontend/src/pwa-icon-180.png frontend/src/pwa-icon-192.png frontend/src/pwa-icon-512.png || true
+          git add bank/question_bank.jsonl bank/meta.json \
+            bank/generated_review_queue.jsonl bank/question_provenance.jsonl \
+            bank/coverage_report.json frontend/src/question-bank.json \
+            frontend/src/service-worker.js
 
           echo "updated_files=$(git diff --cached --name-only | tr '\n' ' ')"
 

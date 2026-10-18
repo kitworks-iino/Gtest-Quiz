@@ -2,65 +2,46 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           package-manager-cache: false
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Validate question bank
-        run: |
-          python tools/validate_question_bank.py
-
-      - name: Build static PWA assets
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Build and validate the question bank
         run: |
           python tools/build_static_pwa_assets.py
-
-      - name: Check OpenAPI contract
-        run: |
-          pytest tests/contracts
-
-      - name: Test browser learning and content guard modules
+          python tools/validate_question_bank.py
+      - name: Test the browser learning modules
         run: node --test tests/frontend/*.test.mjs
-
-      - name: Run unit + integration + backend + frontend tests
-        run: |
-          pytest tests/test_question_quality.py tests/test_content_factory.py tests/test_refill_pipeline.py tests/integration tests/backend tests/frontend -m "not e2e" --cov=gtest_quiz --cov=backend/app --cov-report=term-missing --cov-fail-under=70
-
-      - name: Run learning policy benchmark
-        run: |
-          python tools/benchmark_learning_policy.py --compare
-
-      - name: Check release readiness rubric
+      - name: Test the content pipeline and PWA
+        run: python -m pytest --cov=gtest_quiz --cov-report=term-missing --cov-fail-under=70
+      - name: Check current app readiness
         env:
           READINESS_PROFILE: bootstrap
-        run: |
-          python tools/release_readiness.py
-
-      - name: Run e2e smoke
-        run: |
-          pytest tests/e2e -m e2e
+        run: python tools/release_readiness.py
