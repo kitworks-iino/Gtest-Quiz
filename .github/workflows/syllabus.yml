@@ -1,0 +1,45 @@
+name: Sync Official Syllabus
+
+on:
+  schedule:
+    - cron: "15 0 * * *"
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "tools/sync_official_syllabus.py"
+      - "tests/test_official_syllabus.py"
+      - ".github/workflows/syllabus.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: official-syllabus-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Fetch and validate the official syllabus
+        run: python tools/sync_official_syllabus.py
+      - name: Commit the validated snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/official-syllabus.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: refresh official JDLA syllabus"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi

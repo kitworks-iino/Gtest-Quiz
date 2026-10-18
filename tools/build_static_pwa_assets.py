@@ -25,6 +25,8 @@ SHELL_FILES = (
     "learning-engine.js",
     "content-guard.js",
     "ui.js",
+    "syllabus.js",
+    "official-syllabus.json",
     "manifest.webmanifest",
     "pwa-icon.svg",
     "pwa-icon-180.png",

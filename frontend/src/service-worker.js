@@ -1,7 +1,8 @@
-const CACHE_NAME = 'gtest-quiz-static-gemini35_v1-6891b6474cfe-57257987e54f';
+const CACHE_NAME = 'gtest-quiz-static-gemini35_v1-6891b6474cfe-1b682a7cd9f9';
 const CACHE_PREFIX = 'gtest-quiz-static-';
 const QUESTION_BANK_URL = './question-bank.json';
 const REVIEW_HOLDS_URL = './question-review-holds.json';
+const SYLLABUS_URL = './official-syllabus.json';
 const SHELL = [
   './index.html',
   './offline-app.js',
@@ -9,6 +10,8 @@ const SHELL = [
   './learning-engine.js',
   './content-guard.js',
   './ui.js',
+  './syllabus.js',
+  './official-syllabus.json',
   './manifest.webmanifest',
   './pwa-icon.svg',
   './pwa-icon-180.png',
@@ -115,6 +118,30 @@ async function reviewHoldsNetworkFirst(request) {
     });
 }
 
+async function syllabusNetworkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const response = await fetch(new Request(request, { cache: 'no-store' }));
+    if (response.ok) {
+      const data = await response.clone().json();
+      if (data.schema_version === 'gtest_official_syllabus_v1'
+        && Number.isFinite(Date.parse(data.checked_at))
+        && /^[a-f0-9]{64}$/.test(data.content_hash || '')
+        && Array.isArray(data.sections) && data.sections.length > 0) {
+        await cache.put(SYLLABUS_URL, response.clone());
+        return response;
+      }
+    }
+  } catch (_error) {
+    // An old snapshot keeps its actual check date; never relabel it as current.
+  }
+  return (await cache.match(SYLLABUS_URL))
+    || new Response(JSON.stringify({ error: 'syllabus_unavailable' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    });
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -130,6 +157,10 @@ self.addEventListener('fetch', (event) => {
   }
   if (url.pathname === new URL(REVIEW_HOLDS_URL, self.location.href).pathname) {
     event.respondWith(reviewHoldsNetworkFirst(request));
+    return;
+  }
+  if (url.pathname === new URL(SYLLABUS_URL, self.location.href).pathname) {
+    event.respondWith(syllabusNetworkFirst(request));
     return;
   }
   if (request.mode === 'navigate' || url.pathname.endsWith('/index.html')) {

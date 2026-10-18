@@ -61,6 +61,10 @@ vm.runInContext(worker, context);
 const cacheName = vm.runInContext('CACHE_NAME', context);
 const bankUrl = new URL('./question-bank.json', base).href;
 const holdsUrl = new URL('./question-review-holds.json', base).href;
+const syllabusUrl = new URL('./official-syllabus.json', base).href;
+const syllabus = {schema_version:'gtest_official_syllabus_v1', checked_at:'2026-10-18T07:00:00Z',
+  content_hash:'a'.repeat(64), sections:[{title:'AI'}]};
+const syllabusResponse = () => new Response(JSON.stringify(syllabus), {headers:{'Content-Type':'application/json'}});
 const bank = {schema_version: 'gtest_quiz_static_bank_v1', meta: {}, questions: [{id:'offline'}]};
 const bankResponse = () => new Response(JSON.stringify(bank), {headers:{'Content-Type':'application/json'}});
 const holds = {schema_version:'gtest_question_review_holds_v1', source_bank_hash:'audited-bank', ids:['held']};
@@ -72,7 +76,8 @@ async function fetchThroughWorker(url, method = 'GET') {
 }
 (async () => {
   network = async request => request.url === bankUrl ? bankResponse()
-    : request.url === holdsUrl ? holdsResponse() : new Response('shell');
+    : request.url === holdsUrl ? holdsResponse()
+    : request.url === syllabusUrl ? syllabusResponse() : new Response('shell');
   let installed;
   listeners.install({waitUntil: promise => installed = promise});
   await installed;
@@ -94,6 +99,7 @@ async function fetchThroughWorker(url, method = 'GET') {
     assert.equal(response.status, 200);
     assert.equal((await response.json()).questions[0].id, 'offline');
     assert.deepEqual((await (await fetchThroughWorker(holdsUrl)).json()).ids, ['held']);
+    assert.deepEqual(await (await fetchThroughWorker(syllabusUrl)).json(), syllabus);
   }
   // Cache-busting bank requests use the same known, valid offline bank.
   network = async () => { throw new Error('offline'); };
@@ -113,6 +119,15 @@ async function fetchThroughWorker(url, method = 'GET') {
   const missingHolds = await fetchThroughWorker(holdsUrl);
   assert.equal(missingHolds.status, 503);
   assert.equal((await missingHolds.json()).error, 'review_holds_unavailable');
+  stores.get(cacheName).delete(syllabusUrl);
+  assert.equal((await fetchThroughWorker(syllabusUrl)).status, 503);
+  network = async request => {
+    assert.equal(request.cache, 'no-store');
+    return syllabusResponse();
+  };
+  assert.deepEqual(await (await fetchThroughWorker(syllabusUrl)).json(), syllabus);
+  network = async () => new Response(JSON.stringify({schema_version:'wrong',sections:[]}));
+  assert.deepEqual(await (await fetchThroughWorker(syllabusUrl)).json(), syllabus);
 
   network = async request => {
     assert.equal(request.cache, 'no-store');

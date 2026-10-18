@@ -3,7 +3,7 @@ name: Static PWA Pages
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Auto Refill Question Bank (Quality Pipeline)"]
+    workflows: ["Auto Refill Question Bank (Quality Pipeline)", "Sync Official Syllabus"]
     types: [completed]
     branches: ["main"]
   push:

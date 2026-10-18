@@ -16,8 +16,10 @@ import {
 } from './ui.js';
 import { createEngine } from './learning-engine.js';
 import { partitionQuestions } from './content-guard.js';
+import { syllabusMarkup, validateSyllabus } from './syllabus.js';
 const STATIC_BANK_URL = './question-bank.json';
 const HOLD_URL = './question-review-holds.json';
+const SYLLABUS_URL = './official-syllabus.json';
 const app = document.querySelector('#app'),
   screen = document.querySelector('#screen'),
   navigation = document.querySelector('#navigation'),
@@ -47,6 +49,10 @@ let engine = null,
   heldCount = 0,
   sourceCount = 0,
   booting = false,
+  syllabusData = null,
+  syllabusLoading = false,
+  syllabusFailed = false,
+  syllabusBack = 'home',
   toastTimer,
   lastFocus = null;
 function toast(message) {
@@ -68,6 +74,7 @@ function renderNav() {
       chapter: 'search',
       inspect: inspectBack === 'history' ? 'home' : 'search',
       summary: 'home',
+      syllabus: syllabusBack,
     }[view] || view;
   navigation.innerHTML = [
     ['home', '今日の学習', 'home'],
@@ -116,6 +123,9 @@ function render({ resetScroll = true } = {}) {
       break;
     case 'settings':
       renderSettings();
+      break;
+    case 'syllabus':
+      renderSyllabus();
       break;
     case 'summary':
       renderSummary();
@@ -199,6 +209,7 @@ function renderHome() {
     </div>
     <h2 class="section-title">学習メニュー</h2>
     ${listRow({ name: 'clock', title: '復習待ち', sub: s.dueCount ? '前回の回答から時間をあけて、もう一度' : '復習のタイミングになった問題をまとめます', action: 'review', count: s.dueCount ? `${s.dueCount}問` : '', tone: 'amber', dot: !!s.dueCount })}${listRow({ name: 'focus', title: '間違えた問題', sub: s.weakCount ? '前回間違えた問題を解き直す' : '回答後、間違えた問題がここに集まります', action: 'review-filter:wrong', count: s.weakCount ? `${s.weakCount}問` : '', tone: 'red' })}${listRow({ name: 'list', title: '章を選んで学ぶ', sub: `${engine.chapterCount}章 · ${engine.bank.length}問を収録`, action: 'search', tone: 'blue' })}
+    ${listRow({ name: 'document', title: '公式シラバス', sub: '出題範囲・学習ポイント・公式原文', action: 'syllabus', tone: 'purple' })}
     <h2 class="section-title">
       この7日間<button data-action="history">学習記録 ${icon('chevron')}</button>
     </h2>
@@ -691,12 +702,37 @@ function renderInspect() {
     </article>
   </section>`;
 }
+// The published syllabus snapshot is independent of question-bank loading.
+function renderSyllabus() {
+  screen.innerHTML = syllabusMarkup(syllabusData, {
+    loading: syllabusLoading,
+    failed: syllabusFailed,
+    offline: navigator.onLine === false,
+  });
+}
+async function refreshSyllabus() {
+  if (syllabusLoading) return;
+  syllabusLoading = true;
+  syllabusFailed = false;
+  if (view === 'syllabus') renderSyllabus();
+  try {
+    const response = await fetch(SYLLABUS_URL, { cache: 'no-store' });
+    if (!response.ok) throw new Error('シラバスを取得できませんでした');
+    syllabusData = validateSyllabus(await response.json());
+  } catch (_error) {
+    syllabusFailed = true;
+  } finally {
+    syllabusLoading = false;
+    if (view === 'syllabus') renderSyllabus();
+  }
+}
 // Settings, local backup and dialogs.
 function renderSettings() {
   const s = engine.getStats();
   screen.innerHTML = `<section class="page">
     ${pageHeader('設定', { action: null })}
     <h2 class="section-title">学習</h2>
+    ${settingsRow('document', '公式シラバス', 'syllabus')}
     ${settingsRow('focus', '1日の目標', 'goal', `${s.dailyGoal}問`)}${settingsRow('bookmark', '保存した問題', 'bookmarks', `${s.bookmarkCount}問`)}${settingsRow('clock', '学習記録', 'history')}
     <h2 class="section-title">データ</h2>
     ${settingsRow('download', '学習記録を書き出す', 'export')}${settingsRow('upload', 'バックアップを読み込む', 'import')}${settingsRow('refresh', '問題データを更新する', 'refresh-bank')}
@@ -960,7 +996,15 @@ app.addEventListener('click', (e) => {
         navigate('inspect');
         break;
       case 'back':
-        navigate(view === 'inspect' ? inspectBack : view === 'chapter' ? 'search' : 'home');
+        navigate(view === 'inspect' ? inspectBack : view === 'chapter' ? 'search' : view === 'syllabus' ? syllabusBack : 'home');
+        break;
+      case 'syllabus':
+        syllabusBack = view === 'settings' ? 'settings' : 'home';
+        navigate('syllabus');
+        refreshSyllabus();
+        break;
+      case 'refresh-syllabus':
+        refreshSyllabus();
         break;
       case 'more-search':
         searchLimit += 40;
@@ -1061,10 +1105,12 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('online', () => {
   if (view === 'settings') render();
+  if (view === 'syllabus') refreshSyllabus();
   toast('オンラインになりました');
 });
 window.addEventListener('offline', () => {
   if (view === 'settings') render();
+  if (view === 'syllabus') renderSyllabus();
   toast('読み込み済みの問題で学習を続けられます');
 });
 if ('serviceWorker' in navigator) {
