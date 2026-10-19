@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "1970-01-01T00:00:00Z",
-  "updated_at": "2026-10-16T04:37:29Z",
+  "updated_at": "2026-10-19T04:27:46Z",
   "usage": {
     "total_questions": 0,
     "online_questions": 0,
@@ -301,30 +301,30 @@
   "question_bank": {
     "path": "bank/question_bank.jsonl",
     "bank_version": "gemini35_v1",
-    "total_questions": 919,
-    "updated_at": "2026-10-16T04:37:29Z"
+    "total_questions": 924,
+    "updated_at": "2026-10-19T04:27:46Z"
   },
   "content_factory": {
-    "last_refill_at": "2026-10-16T04:37:29Z",
-    "model": "gemini-3.5-flash",
+    "last_refill_at": "2026-10-19T04:27:46Z",
+    "model": "gemini-3.8-flash",
     "bank_version": "gemini35_v1",
     "mode": "daily",
-    "prompt_version": "gtest_factory_gemini35_v1_2026-05-26",
+    "prompt_version": "gtest_factory_v3_2026-10-18",
     "target_accepts": 5,
-    "generated": 9,
-    "accepted": 3,
+    "generated": 10,
+    "accepted": 5,
     "queued_for_review": 0,
-    "rejected": 6,
+    "rejected": 5,
     "duplicates": 0,
-    "errors": 156,
+    "errors": 0,
     "targets": 55,
-    "api_call_count": 480,
-    "rate_limit_errors": 459,
+    "api_call_count": 10,
+    "rate_limit_errors": 0,
     "correct_index_distribution_generated": {
       "0": 1,
-      "1": 0,
+      "1": 4,
       "2": 0,
-      "3": 2
+      "3": 0
     }
   },
   "normalization": {
@@ -345,34 +345,49 @@
     ]
   },
   "last_refill_result": {
-    "recorded_at": "2026-10-16T04:37:29Z",
-    "model": "gemini-3.5-flash",
+    "recorded_at": "2026-10-19T04:27:46Z",
+    "model": "gemini-3.8-flash",
+    "model_selection": {
+      "model_id": "gemini-3.8-flash",
+      "eligible_models": [
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite"
+      ],
+      "checked_at": "2026-10-19T04:25:05.178590+00:00",
+      "pricing_url": "https://ai.google.dev/gemini-api/docs/pricing?hl=en",
+      "reason": "Latest numeric version, then Argon > Pro > Flash > Flash-Lite; stable text models with generateContent and verified free Standard input/output only. This verifies free-tier eligibility, not the project's billing tier or benchmark superiority."
+    },
     "bank_version": "gemini35_v1",
     "mode": "daily",
     "target_accepts": 5,
-    "generated": 9,
-    "accepted": 3,
+    "generated": 10,
+    "accepted": 5,
     "queued_for_review": 0,
-    "rejected": 6,
+    "rejected": 5,
     "duplicates": 0,
-    "errors": 156,
-    "api_call_count": 480,
-    "rate_limit_errors": 459,
+    "errors": 0,
+    "api_call_count": 10,
+    "rate_limit_errors": 0,
     "correct_index_distribution_before": {
-      "0": 231,
+      "0": 232,
       "1": 222,
       "2": 217,
-      "3": 246
+      "3": 248
     },
     "correct_index_distribution_generated": {
       "0": 1,
-      "1": 0,
+      "1": 4,
       "2": 0,
-      "3": 2
+      "3": 0
     },
     "correct_index_distribution_after": {
-      "0": 232,
-      "1": 222,
+      "0": 233,
+      "1": 226,
       "2": 217,
       "3": 248
     }
