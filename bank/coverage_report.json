@@ -1,6 +1,6 @@
 {
   "schema_version": "gtest_quiz_coverage_report_v1",
-  "generated_at": "2026-10-22T04:39:45Z",
+  "generated_at": "2026-10-23T04:42:28Z",
   "bank_version": "gemini35_v1",
   "model": "gemini-3.8-flash",
   "model_selection_policy": "auto",
@@ -16,17 +16,17 @@
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite"
     ],
-    "checked_at": "2026-10-22T04:26:24.406882+00:00",
+    "checked_at": "2026-10-23T04:31:38.835143+00:00",
     "pricing_url": "https://ai.google.dev/gemini-api/docs/pricing?hl=en",
     "reason": "Latest numeric version, then Argon > Pro > Flash > Flash-Lite; stable text models with generateContent and verified free Standard input/output only. This verifies free-tier eligibility, not the project's billing tier or benchmark superiority."
   },
   "model_distribution": {
     "gemini-3.5-flash": 919,
-    "gemini-3.8-flash": 23
+    "gemini-3.8-flash": 28
   },
   "model_provenance_missing_count": 0,
   "model_mismatch_count": 0,
-  "total_questions": 942,
+  "total_questions": 947,
   "target_complete_questions": 550,
   "target_expanded_questions": 1000,
   "expected_chapters": 55,
@@ -34,10 +34,10 @@
   "missing_chapters": [],
   "extra_chapters": [],
   "correct_index_distribution": {
-    "0": 238,
-    "1": 232,
-    "2": 223,
-    "3": 249
+    "0": 240,
+    "1": 233,
+    "2": 224,
+    "3": 250
   },
   "correct_index_window_issues": [],
   "active_review_warning_count": 0,
@@ -192,14 +192,14 @@
     {
       "chapter_group": "機械学習の概要",
       "chapter_id": "9. 強化学習",
-      "question_count": 11,
+      "question_count": 12,
       "difficulty_distribution": {
         "basic": 3,
         "standard": 6,
-        "advanced": 2
+        "advanced": 3
       },
       "correct_index_distribution": {
-        "0": 3,
+        "0": 4,
         "1": 2,
         "2": 5,
         "3": 1
@@ -462,17 +462,17 @@
     {
       "chapter_group": "ディープラーニングの要素技術",
       "chapter_id": "24. オートエンコーダ",
-      "question_count": 11,
+      "question_count": 12,
       "difficulty_distribution": {
         "basic": 3,
         "standard": 6,
-        "advanced": 2
+        "advanced": 3
       },
       "correct_index_distribution": {
         "0": 1,
         "1": 3,
         "2": 5,
-        "3": 2
+        "3": 3
       },
       "legal_source_missing": 0,
       "review_warning_count": 0
@@ -876,16 +876,16 @@
     {
       "chapter_group": "AI倫理・AIガバナンス",
       "chapter_id": "10. 公平性",
-      "question_count": 11,
+      "question_count": 12,
       "difficulty_distribution": {
         "basic": 3,
         "standard": 6,
-        "advanced": 2
+        "advanced": 3
       },
       "correct_index_distribution": {
         "0": 4,
         "1": 2,
-        "2": 3,
+        "2": 4,
         "3": 2
       },
       "legal_source_missing": 0,
@@ -966,15 +966,15 @@
     {
       "chapter_group": "AI倫理・AIガバナンス",
       "chapter_id": "15. 環境保護",
-      "question_count": 14,
+      "question_count": 15,
       "difficulty_distribution": {
         "basic": 4,
         "standard": 7,
-        "advanced": 3
+        "advanced": 4
       },
       "correct_index_distribution": {
         "0": 4,
-        "1": 5,
+        "1": 6,
         "2": 2,
         "3": 3
       },
@@ -1002,14 +1002,14 @@
     {
       "chapter_group": "AI倫理・AIガバナンス",
       "chapter_id": "17. その他の重要な価値",
-      "question_count": 15,
+      "question_count": 16,
       "difficulty_distribution": {
         "basic": 4,
-        "standard": 7,
+        "standard": 8,
         "advanced": 4
       },
       "correct_index_distribution": {
-        "0": 3,
+        "0": 4,
         "1": 1,
         "2": 5,
         "3": 6
@@ -1074,28 +1074,28 @@
       "min_questions": 1000,
       "min_chapters": 55,
       "min_per_chapter": 15,
-      "chapters_meeting_floor": 45,
+      "chapters_meeting_floor": 46,
       "difficulty_balance_failures": []
     }
   },
-  "review_queue_total": 608,
+  "review_queue_total": 614,
   "review_queue_by_decision": {
     "error": 76,
-    "reject": 501,
+    "reject": 507,
     "review": 31
   },
   "reject_reason_top": [
     {
       "reason": "explanation should distinguish incorrect choices",
-      "count": 474
+      "count": 480
     },
     {
       "reason": "explanation does not distinguish distractors",
-      "count": 391
+      "count": 397
     },
     {
       "reason": "explanation should include the reason for the correct answer",
-      "count": 234
+      "count": 239
     },
     {
       "reason": "explanation does not clearly state why the answer is correct",
